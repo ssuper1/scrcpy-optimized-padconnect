@@ -38,13 +38,14 @@ public final class Sessions extends Service {
         // target just rebuilds the notification.
         String host = intent == null ? null : intent.getStringExtra(Mirror.EXTRA_HOST);
         int    port = intent == null ? -1   : intent.getIntExtra(Mirror.EXTRA_PORT, -1);
+        String id = intent == null ? null : intent.getStringExtra(Mirror.EXTRA_DEVICE_ID);
 
         ensureChannel();
         Notification n = new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(getString(R.string.app_name))
                 .setContentText(getString(R.string.notif_session_active))
-                .setContentIntent(reopenIntent(host, port))
+                .setContentIntent(reopenIntent(id, host, port))
                 .setOngoing(true)
                 .build();
         startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
@@ -78,12 +79,13 @@ public final class Sessions extends Service {
     // session it was advertising. Mirror is singleTask, so a plain
     // NEW_TASK launch brings the existing instance forward, and carrying
     // the target means a launch after the activity died still works.
-    private PendingIntent reopenIntent(String host, int port) {
+    private PendingIntent reopenIntent(String id, String host, int port) {
         Intent i = new Intent(this, Mirror.class);
         i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         if (host != null) {
             i.putExtra(Mirror.EXTRA_HOST, host);
             i.putExtra(Mirror.EXTRA_PORT, port);
+            i.putExtra(Mirror.EXTRA_DEVICE_ID, id);
         }
         return PendingIntent.getActivity(this, 0, i,
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);

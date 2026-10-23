@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.text.InputType;
 import android.view.View;
 import android.view.WindowInsets;
 import android.widget.Button;
@@ -30,6 +31,13 @@ public final class Main extends Activity {
     private LinearLayout deviceList;
     private TextView     devicesEmpty;
     private Button       pairButton;
+    private Button       discoverButton;
+    private TextView     discoveryStatus;
+    private AdbDiscovery discovery;
+    private int discoveryGeneration;
+    private boolean resumed;
+    private List<AdbDiscovery.Endpoint> discovered = java.util.Collections.emptyList();
+    private final android.os.Handler discoveryUi = new android.os.Handler(android.os.Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -50,6 +58,9 @@ public final class Main extends Activity {
         View settingsBtn     = findViewById(R.id.settings);
         deviceList  = findViewById(R.id.devices);
         devicesEmpty = findViewById(R.id.devices_empty);
+        discoverButton = findViewById(R.id.discover_devices);
+        discoveryStatus = findViewById(R.id.discovery_status);
+        discoverButton.setOnClickListener(v -> startDiscovery());
 
         settingsBtn.setOnClickListener(v -> startActivity(
                 new Intent(this, SettingsActivity.class)));
@@ -108,6 +119,58 @@ public final class Main extends Activity {
         });
     }
 
+    @Override protected void onResume() {
+        super.onResume();
+        resumed = true;
+        startDiscovery();
+    }
+
+    @Override protected void onPause() {
+        resumed = false;
+        stopDiscovery();
+        super.onPause();
+    }
+
+    private void stopDiscovery() {
+        discoveryGeneration++;
+        discoveryUi.removeCallbacksAndMessages(null);
+        if (discovery != null) discovery.close();
+        discovery = null;
+    }
+
+    private void startDiscovery() {
+        stopDiscovery();
+        discovered = java.util.Collections.emptyList();
+        reloadDevices();
+        int generation = discoveryGeneration;
+        discoverButton.setEnabled(false);
+        discoveryStatus.setText(R.string.discovery_searching);
+        discovery = new AdbDiscovery(this, endpoints -> runOnUiThread(() -> {
+            if (generation != discoveryGeneration || isFinishing() || isDestroyed()) return;
+            discovered = endpoints;
+            reloadDevices();
+        }));
+        discoveryUi.postDelayed(() -> {
+            if (generation != discoveryGeneration) return;
+            discoverButton.setEnabled(true);
+            boolean found = false;
+            try {
+                for (Devices.Device device : Devices.load(this)) {
+                    if (AdbDiscovery.match(device, discovered) != null) { found = true; break; }
+                }
+            } catch (IOException e) { Log.w("device discovery list read: %s", e); }
+            discoveryStatus.setText(found ? R.string.discovery_ready : R.string.discovery_not_found);
+        }, AdbDiscovery.SCAN_MS);
+    }
+
+    private void reloadDevices() {
+        try { showDevices(Devices.load(this)); }
+        catch (IOException e) {
+            Log.w("devices refresh failed: %s", e);
+            discoveryStatus.setText(R.string.device_list_unreadable);
+        }
+    }
+
     // Rebuild the saved-device rows. There is no adapter: the whole page
     // is one ScrollView, a ListView cannot measure itself inside one, and
     // a handful of rows does not need recycling.
@@ -116,17 +179,58 @@ public final class Main extends Activity {
         devicesEmpty.setVisibility(devices.isEmpty() ? View.VISIBLE : View.GONE);
         for (Devices.Device d : devices) {
             View row = getLayoutInflater().inflate(R.layout.device_row, deviceList, false);
-            ((TextView) row.findViewById(R.id.device_label)).setText(d.toString());
+            AdbDiscovery.Endpoint endpoint = AdbDiscovery.match(d, discovered);
+            String label = endpoint != null
+                    ? getString(R.string.device_discovered, d.at(endpoint.host, endpoint.port).toString())
+                    : d.toString() + "\n" + getString(d.guid == null
+                    ? R.string.device_identity_pending : R.string.device_saved_address);
+            ((TextView) row.findViewById(R.id.device_label)).setText(label);
             row.setOnClickListener(v -> {
                 Log.i("connect tap: %s", d);
                 Intent i = new Intent(this, Mirror.class);
                 i.putExtra(Mirror.EXTRA_HOST, d.host);
                 i.putExtra(Mirror.EXTRA_PORT, d.port);
+                i.putExtra(Mirror.EXTRA_DEVICE_ID, d.id);
                 startActivity(i);
             });
-            row.setOnLongClickListener(v -> { confirmForget(d); return true; });
+            row.setOnLongClickListener(v -> {
+                new AlertDialog.Builder(this).setTitle(d.toString())
+                        .setItems(new String[]{getString(R.string.edit_device_address),
+                                getString(R.string.forget_device_action)}, (dialog, which) -> {
+                            if (which == 0) editAddress(d);
+                            else confirmForget(d);
+                        }).show();
+                return true;
+            });
             deviceList.addView(row);
         }
+    }
+
+    private void editAddress(Devices.Device device) {
+        EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        input.setSingleLine(true);
+        input.setText(device.toString());
+        input.setSelectAllOnFocus(true);
+        input.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.edit_device_address).setMessage(R.string.edit_device_address_help)
+                .setView(input).setPositiveButton(android.R.string.ok, null)
+                .setNegativeButton(android.R.string.cancel, null).create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(view -> {
+                    Devices.Device address = Devices.parseAddress(input.getText().toString());
+                    if (address == null) { input.setError(getString(R.string.bad_address)); return; }
+                    try {
+                        Devices.replace(this, device, device.at(address.host, address.port));
+                        dialog.dismiss();
+                        reloadDevices();
+                        Toast.makeText(this, R.string.device_address_saved, Toast.LENGTH_SHORT).show();
+                    } catch (IOException e) {
+                        input.setError(getString(R.string.device_save_failed));
+                    }
+                }));
+        dialog.show();
     }
 
     private void confirmForget(Devices.Device d) {
@@ -150,14 +254,15 @@ public final class Main extends Activity {
     private void pairAndSave(Devices.Device target, int pairPort, String code, Button btn) {
         try {
             Log.i("pair: %s:%d", target.host, pairPort);
-            adb.pairDevice(target.host, pairPort, code);
+            String guid = adb.pairDevice(target.host, pairPort, code);
             Log.i("pair ok host=%s pair_port=%d", target.host, pairPort);
-            List<Devices.Device> updated = Devices.upsert(getApplicationContext(), target);
+            List<Devices.Device> updated = Devices.upsert(getApplicationContext(), target.withGuid(guid));
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
                 showDevices(updated);
                 Toast.makeText(this, "paired and saved", Toast.LENGTH_SHORT).show();
                 btn.setEnabled(true);
+                if (resumed) startDiscovery();
             });
         } catch (Exception e) {
             Log.e(e, "pair failed");

@@ -4,6 +4,10 @@ package invalid.lena.scrcpy;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 // Thin wrapper around SharedPreferences for the small set of user
 // choices the app exposes. No reactivity, no DataStore - the values
 // are read once when a Session starts and applied to the scrcpy
@@ -21,6 +25,7 @@ public final class Settings {
     public static final String PHONE_MODE = "phone_mode";
     public static final String PHONE_TEXT_SCALE = "phone_text_scale";
     public static final String PHONE_LAST_APP = "phone_last_app";
+    public static final String FAVORITE_APPS = "favorite_apps";
 
     public static final String DEFAULT_VIDEO_CODEC    = "h264";
     public static final String DEFAULT_AUDIO_CODEC    = "opus";
@@ -150,6 +155,25 @@ public final class Settings {
     public static void setPhoneLastApp(Context ctx, String packageName) {
         ControlMessages.startApp(packageName); // Validate before persisting.
         prefs(ctx).edit().putString(PHONE_LAST_APP, packageName).apply();
+    }
+
+    public static Set<String> favoriteApps(Context ctx) {
+        try {
+            Set<String> saved = prefs(ctx).getStringSet(FAVORITE_APPS, Collections.emptySet());
+            // SharedPreferences owns the returned set; callers only receive a copy.
+            return saved == null ? new HashSet<>() : new HashSet<>(saved);
+        } catch (ClassCastException e) {
+            Log.w("settings: %s has the wrong type", FAVORITE_APPS);
+            return new HashSet<>();
+        }
+    }
+
+    public static void setAppFavorite(Context ctx, String packageName, boolean favorite) {
+        ControlMessages.startApp(packageName); // Validate without sending a command.
+        Set<String> saved = favoriteApps(ctx);
+        if (favorite) saved.add(packageName);
+        else saved.remove(packageName);
+        prefs(ctx).edit().putStringSet(FAVORITE_APPS, saved).apply();
     }
 
     private static String string(Context ctx, String key, String fallback) {

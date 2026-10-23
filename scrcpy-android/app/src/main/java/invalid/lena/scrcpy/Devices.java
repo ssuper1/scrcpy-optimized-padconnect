@@ -13,6 +13,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 // Tiny JSON-backed list of paired targets, stored at filesDir/devices.json.
 // No SQLite, no Room. Read on demand, written whole-file on add/remove.
@@ -28,10 +30,26 @@ public final class Devices {
     public static final class Device {
         public final String host;
         public final int    port;
+        public final String id;
+        public final String guid;
 
         public Device(String host, int port) {
+            this(UUID.randomUUID().toString(), host, port, null);
+        }
+
+        Device(String id, String host, int port, String guid) {
+            this.id = id;
             this.host = host;
             this.port = port;
+            this.guid = normalizeGuid(guid);
+        }
+
+        public Device at(String host, int port) {
+            return new Device(id, host, port, guid);
+        }
+
+        public Device withGuid(String guid) {
+            return new Device(id, host, port, guid);
         }
 
         // Bracket IPv6 literals so the port stays unambiguous. Round-trips
@@ -125,7 +143,12 @@ public final class Devices {
                 if (!validHost(host) || port < 1 || port > 65535) {
                     throw new IllegalArgumentException("invalid device fields");
                 }
-                out.add(new Device(host, port));
+                // Legacy IDs are deterministic until the next save migrates the file.
+                String legacyId = "legacy:" + new Device(host, port).toString();
+                String id = o.optString("id", legacyId);
+                if (id.isEmpty() || id.length() > 512) id = legacyId;
+                String guid = o.optString("guid", null);
+                out.add(new Device(id, host, port, guid));
             } catch (Exception e) {
                 Log.w("devices: skipping malformed row %d: %s", i, e);
             }
@@ -143,6 +166,8 @@ public final class Devices {
                 JSONObject o = new JSONObject();
                 o.put("host", d.host);
                 o.put("port", d.port);
+                o.put("id", d.id);
+                if (d.guid != null) o.put("guid", d.guid);
                 arr.put(o);
             }
             return arr.toString(2);
@@ -175,6 +200,16 @@ public final class Devices {
         return null;
     }
 
+    public static Device findById(Context ctx, String id) throws IOException {
+        return findById(load(ctx), id);
+    }
+
+    static Device findById(List<Device> devices, String id) {
+        if (id == null) return null;
+        for (Device d : devices) if (id.equals(d.id)) return d;
+        return null;
+    }
+
     private static void save(Context ctx, List<Device> devices) throws IOException {
         File f = new File(ctx.getFilesDir(), FILE);
         AtomicFiles.write(f, serialize(devices).getBytes(StandardCharsets.UTF_8));
@@ -184,8 +219,7 @@ public final class Devices {
     // is the test seam.
     public static synchronized List<Device> upsert(Context ctx, Device d) throws IOException {
         List<Device> list = load(ctx);
-        list.removeIf(d::equals);
-        list.add(d);
+        upsertIn(list, d);
         save(ctx, list);
         return list;
     }
@@ -193,9 +227,62 @@ public final class Devices {
     // Remove the matching device (by host+port). Returns the updated list.
     public static synchronized List<Device> remove(Context ctx, Device d) throws IOException {
         List<Device> list = load(ctx);
-        list.removeIf(d::equals);
+        list.removeIf(row -> row.id.equals(d.id));
         save(ctx, list);
         return list;
+    }
+
+    static void upsertIn(List<Device> list, Device device) {
+        // Re-pairing the same target keeps its stable local ID and avoids duplicate rows.
+        Device previous = null;
+        for (Device row : list) {
+            if ((device.guid != null && device.guid.equals(row.guid))
+                    || (device.equals(row) && (row.guid == null || device.guid == null))) {
+                previous = row;
+                break;
+            }
+        }
+        if (previous != null) {
+            String guid = device.guid != null ? device.guid : previous.guid;
+            Device merged = new Device(previous.id, device.host, device.port, guid);
+            list.removeIf(row -> row.id.equals(merged.id)
+                    || (merged.guid != null && merged.guid.equals(row.guid)));
+            list.add(merged);
+        } else {
+            list.removeIf(row -> row.id.equals(device.id));
+            list.add(device);
+        }
+    }
+
+    // Compare-and-replace: a stale discovery must neither resurrect a forgotten
+    // row nor overwrite an address that was edited while it was connecting.
+    public static synchronized Device replace(Context ctx, Device expected, Device updated) throws IOException {
+        List<Device> list = load(ctx);
+        Device replaced = replaceIn(list, expected, updated);
+        if (replaced == null) throw new IOException("Saved device changed or was removed; select it again");
+        save(ctx, list);
+        return replaced;
+    }
+
+    static Device replaceIn(List<Device> list, Device expected, Device updated) {
+        Device current = findById(list, expected.id);
+        if (current == null || !current.equals(expected) || !Objects.equals(current.guid, expected.guid)
+                || !expected.id.equals(updated.id) || !validHost(updated.host)
+                || updated.port < 1 || updated.port > 65535) return null;
+        if (current.guid != null && !current.guid.equals(updated.guid)) return null;
+        for (int index = 0; index < list.size(); index++) {
+            if (list.get(index).id.equals(current.id)) { list.set(index, updated); break; }
+        }
+        return updated;
+    }
+
+    static String normalizeGuid(String guid) {
+        if (guid == null || guid.isEmpty() || guid.length() > 255) return null;
+        for (int i = 0; i < guid.length(); i++) {
+            char c = guid.charAt(i);
+            if (c < 0x21 || c > 0x7e) return null;
+        }
+        return guid;
     }
 
     private static boolean validHost(String host) {

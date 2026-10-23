@@ -1,3 +1,4 @@
+// Modified for padconnect (2026); see the root NOTICE for changes and upstream provenance.
 package com.genymobile.scrcpy;
 
 import com.genymobile.scrcpy.audio.AudioCapture;
@@ -13,9 +14,11 @@ import com.genymobile.scrcpy.device.DesktopConnection;
 import com.genymobile.scrcpy.device.Device;
 import com.genymobile.scrcpy.device.Streamer;
 import com.genymobile.scrcpy.model.ConfigurationException;
+import com.genymobile.scrcpy.model.DeviceApp;
 import com.genymobile.scrcpy.model.NewDisplay;
 import com.genymobile.scrcpy.opengl.OpenGLRunner;
 import com.genymobile.scrcpy.util.Ln;
+import com.genymobile.scrcpy.util.AppIcons;
 import com.genymobile.scrcpy.util.LogUtils;
 import com.genymobile.scrcpy.video.CameraCapture;
 import com.genymobile.scrcpy.video.NewDisplayCapture;
@@ -30,6 +33,8 @@ import android.os.Looper;
 import android.system.Os;
 
 import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -263,7 +268,15 @@ public final class Server {
             if (options.getListApps()) {
                 Workarounds.apply();
                 Ln.i("Processing Android apps... (this may take some time)");
-                Ln.i(LogUtils.buildAppListMessage());
+                List<DeviceApp> apps = Device.listApps();
+                Ln.i(LogUtils.buildAppListMessage("List of apps:", apps));
+                if (options.getListAppIcons()) {
+                    // System.out is disabled above. Send image records to the shell
+                    // descriptor directly, without flooding Android's logcat.
+                    try (FileOutputStream output = new FileOutputStream(FileDescriptor.out)) {
+                        AppIcons.write(apps, output);
+                    }
+                }
             }
             // Just print the requested data, do not mirror
             return;

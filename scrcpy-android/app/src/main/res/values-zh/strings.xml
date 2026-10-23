@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="remote_back">返回</string>
-    <string name="remote_home">桌面 / 应用</string>
+    <string name="menu_apps">应用与收藏</string>
+    <string name="menu_phone_mode">手机比例</string>
+    <string name="menu_original_mode">平板原始比例</string>
     <string name="rotate_screen">旋转屏幕</string>
     <string name="address_hint">192.168.1.42:41234</string>
     <string name="pair_port_hint">37123</string>
@@ -38,6 +40,18 @@
     <string name="pair_and_save">配对并保存</string>
     <string name="pair_a_device">配对设备</string>
     <string name="saved_devices">已保存设备（点击连接）</string>
+    <string name="discover_devices">重新搜索</string>
+    <string name="discovery_searching">正在发现已保存设备…</string>
+    <string name="discovery_ready">已发现新地址，点击设备连接；长按可修改地址。</string>
+    <string name="discovery_not_found">未发现已保存设备。请检查无线调试和 Wi-Fi，或长按设备修改地址。</string>
+    <string name="device_discovered">%1$s\n已发现 · 点击连接</string>
+    <string name="device_identity_pending">成功连接一次后启用自动发现；长按可修改地址</string>
+    <string name="device_saved_address">已保存地址 · 长按可修改</string>
+    <string name="edit_device_address">修改连接地址</string>
+    <string name="edit_device_address_help">填写平板「无线调试」主页的 IP 和端口，保留已有配对，无需配对码。</string>
+    <string name="forget_device_action">忘记设备</string>
+    <string name="device_address_saved">连接地址已更新，已有配对已保留</string>
+    <string name="device_save_failed">保存失败，请关闭弹窗后重新选择设备。</string>
     <string name="version_format">版本 %1$s（%2$d）</string>
     <string name="display_mode">显示模式</string>
     <string name="menu_handle_hint">菜单：点击打开，拖动可换位置</string>
@@ -52,7 +66,16 @@
     <string name="leave_mirror">断开并退出</string>
     <string name="loading_apps">正在读取平板应用…</string>
     <string name="search_apps">搜索应用名称或包名</string>
-    <string name="phone_app_help">应用在手机专用屏幕内运行；平板主屏切换应用不会同步到这里。点屏幕侧边的小把手 → 桌面 / 应用切换；把手可拖动换位置。</string>
+    <string name="app_picker_title">应用 / 收藏</string>
+    <string name="close_app_picker">关闭应用选择框</string>
+    <string name="favorite_apps">收藏置顶</string>
+    <string name="all_apps">全部应用</string>
+    <string name="favorite_app_action">收藏应用</string>
+    <string name="favorite_app">收藏 %1$s 并置顶</string>
+    <string name="unfavorite_app">取消收藏 %1$s</string>
+    <string name="app_favorited">已收藏</string>
+    <string name="app_not_favorited">未收藏</string>
+    <string name="no_matching_apps">没有找到匹配的应用</string>
     <string name="opening_app">正在打开 %1$s</string>
     <string name="app_list_failed">无法读取平板应用：%1$s。可点侧边菜单把手切换回原始比例。</string>
     <string-array name="phone_text_sizes">

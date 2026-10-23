@@ -235,12 +235,16 @@ public final class Server {
         push(queryPath);
         String cmd = "CLASSPATH=" + queryPath
                 + " app_process / com.genymobile.scrcpy.Server " + readVersion()
-                + " list_apps=true cleanup=true";
+                + " list_apps=true list_app_icons=true cleanup=true";
         AdbStream query = adb.openShell(cmd);
         CountDownLatch done = new CountDownLatch(1);
+        AtomicBoolean timedOut = new AtomicBoolean();
         Thread deadline = new Thread(() -> {
             try {
-                if (!done.await(20, TimeUnit.SECONDS)) closeQuietly(query);
+                if (!done.await(20, TimeUnit.SECONDS)) {
+                    timedOut.set(true);
+                    closeQuietly(query);
+                }
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             }
@@ -250,12 +254,23 @@ public final class Server {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             InputStream input = query.openInputStream();
             byte[] buffer = new byte[4096];
-            for (int count; (count = input.read(buffer)) >= 0;) {
-                if (count == 0) throw new IOException("App list read made no progress");
-                if (out.size() + count > 1_048_576) throw new IOException("App list is too large");
-                out.write(buffer, 0, count);
+            try {
+                for (int count; (count = input.read(buffer)) >= 0;) {
+                    if (count == 0) throw new IOException("App list read made no progress");
+                    if (out.size() + count > 16_777_216) throw new IOException("App list is too large");
+                    out.write(buffer, 0, count);
+                }
+            } catch (IOException e) {
+                String partial = out.toString(StandardCharsets.UTF_8.name()).replace("\r\n", "\n");
+                if (!timedOut.get() || !partial.contains("\nPADCONNECT_APPS_END\n")) throw e;
+                // The full name/package list is already available. Late icon
+                // failures must not make app selection unusable.
+                Log.w("remote apps: icon query timed out; using available icons");
             }
             String output = out.toString(StandardCharsets.UTF_8.name());
+            if (timedOut.get() && !output.replace("\r\n", "\n").contains("\nPADCONNECT_APPS_END\n")) {
+                throw new IOException("App list query timed out before the app list was complete");
+            }
             try {
                 List<RemoteApps.Entry> apps = RemoteApps.parse(output);
                 Log.i("remote apps: loaded %d entries", apps.size());

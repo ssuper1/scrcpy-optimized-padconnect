@@ -10,19 +10,20 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Insets;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Gravity;
+import android.view.ContextThemeWrapper;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.Window;
 import android.view.WindowInsetsController;
@@ -33,16 +34,11 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.PopupMenu;
-import android.widget.ArrayAdapter;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.ListView;
-import android.text.Editable;
-import android.text.TextWatcher;
 
 import java.util.Locale;
 import java.util.List;
-import java.util.ArrayList;
+import java.util.Map;
+import java.util.Collections;
 
 // Full-screen mirror activity. Pulls target host/port from intent
 // extras, starts a Sessions foreground service to keep the process
@@ -63,6 +59,7 @@ public final class Mirror extends Activity {
 
     public static final String EXTRA_HOST = "host";
     public static final String EXTRA_PORT = "port";
+    public static final String EXTRA_DEVICE_ID = "device_id";
 
     // Arbitrary request code for POST_NOTIFICATIONS - we don't react to
     // the result; the system caches the choice for next launch.
@@ -77,6 +74,7 @@ public final class Mirror extends Activity {
     private volatile boolean destroyed;
     private long           sessionGeneration;
     private boolean        stoppingSession;
+    private String         lastSessionError;
     private State          state = State.CONNECTING;
     private int            connectedW, connectedH;
     private long           connectedGeometryVersion;
@@ -86,7 +84,9 @@ public final class Mirror extends Activity {
     private View           modeButton;
     private EdgeMenuHandle menuHandle;
     private AlertDialog    appDialog;
+    private PopupMenu      displayMenu;
     private List<RemoteApps.Entry> cachedApps;
+    private Map<String, Bitmap> cachedAppIcons = Collections.emptyMap();
 
     private SurfaceView surfaceView;
 
@@ -114,7 +114,7 @@ public final class Mirror extends Activity {
             finish();
             return;
         }
-        target = resolveTarget(host, port);
+        target = resolveTarget(getIntent().getStringExtra(EXTRA_DEVICE_ID), host, port);
         if (target == null) {
             Log.e("mirror: refusing unsaved target %s:%d", host, port);
             Toast.makeText(this, R.string.device_not_paired, Toast.LENGTH_LONG).show();
@@ -270,7 +270,7 @@ public final class Mirror extends Activity {
         // Re-read the row so forgetting a device invalidates stale tasks and
         // notifications before they open a new session.
         Devices.Device current = target;
-        Devices.Device resolved = resolveTarget(current.host, current.port);
+        Devices.Device resolved = resolveTarget(current.id, current.host, current.port);
         if (resolved == null) {
             state = State.DISCONNECTED;
             updateStatusBar();
@@ -278,6 +278,7 @@ public final class Mirror extends Activity {
             return;
         }
         target = resolved;
+        lastSessionError = null;
         state = State.CONNECTING;
         updateStatusBar();
         long generation = ++sessionGeneration;
@@ -285,10 +286,22 @@ public final class Mirror extends Activity {
         appPickerRequested = false;
         PhoneDisplay phone = phoneModeSession ? phoneDisplayForWindow() : null;
         session = new Session(this, adb, target, s, phone, new Session.Listener() {
+            @Override public void onTargetResolved(Devices.Device resolvedTarget) {
+                runOnUiThread(() -> {
+                    if (destroyed || generation != sessionGeneration) return;
+                    target = resolvedTarget;
+                    getIntent().putExtra(EXTRA_DEVICE_ID, target.id);
+                    getIntent().putExtra(EXTRA_HOST, target.host);
+                    getIntent().putExtra(EXTRA_PORT, target.port);
+                    startKeepalive();
+                    updateStatusBar();
+                });
+            }
             @Override public void onConnected(long geometryVersion, int w, int h) {
                 runOnUiThread(() -> {
                     if (destroyed || generation != sessionGeneration) return;
                     state = State.CONNECTED;
+                    lastSessionError = null;
                     connectedGeometryVersion = geometryVersion;
                     connectedW = w; connectedH = h;
                     updateStatusBar();
@@ -305,6 +318,7 @@ public final class Mirror extends Activity {
                 Log.i("mirror: link lost, reconnecting");
                 runOnUiThread(() -> {
                     if (destroyed || generation != sessionGeneration) return;
+                    lastSessionError = null;
                     state = State.CONNECTING;
                     updateStatusBar();
                 });
@@ -312,7 +326,9 @@ public final class Mirror extends Activity {
             @Override public void onError(Throwable t) {
                 runOnUiThread(() -> {
                     if (destroyed || generation != sessionGeneration) return;
-                    Toast.makeText(Mirror.this, describe(t), Toast.LENGTH_LONG).show();
+                    lastSessionError = describe(t);
+                    updateStatusBar();
+                    Toast.makeText(Mirror.this, lastSessionError, Toast.LENGTH_LONG).show();
                 });
             }
             @Override public void onDisplayScaleError() {
@@ -336,8 +352,10 @@ public final class Mirror extends Activity {
     }
 
     private void reconnect() {
+        if (displayMenu != null) displayMenu.dismiss();
         if (appDialog != null) appDialog.dismiss();
         Log.i("mirror: reconnect tapped");
+        lastSessionError = null;
         state = State.CONNECTING;
         updateStatusBar();
         if (stoppingSession) return;
@@ -380,17 +398,20 @@ public final class Mirror extends Activity {
             Log.w("mirror: ignoring bad replacement target host=%s port=%d", host, port);
             return;
         }
-        if (target.host.equals(host) && target.port == port) return;
-
-        Devices.Device replacement = resolveTarget(host, port);
+        Devices.Device replacement = resolveTarget(intent.getStringExtra(EXTRA_DEVICE_ID), host, port);
         if (replacement == null) {
             Log.w("mirror: refusing unsaved replacement target %s:%d", host, port);
             Toast.makeText(this, R.string.device_not_paired, Toast.LENGTH_LONG).show();
             return;
         }
+        boolean sameDevice = target.id.equals(replacement.id);
+        if (sameDevice && target.equals(replacement) && state != State.DISCONNECTED) return;
         setIntent(intent);
         target = replacement;
-        cachedApps = null;
+        if (!sameDevice) {
+            cachedApps = null;
+            cachedAppIcons = Collections.emptyMap();
+        }
         connectedW = connectedH = 0;
         connectedGeometryVersion = 0;
         startKeepalive();   // repoint the notification at the new target
@@ -408,11 +429,13 @@ public final class Mirror extends Activity {
                 break;
             case DISCONNECTED:
                 s = String.format(Locale.ROOT, "%s:%d  %s",
-                        target.host, target.port, getString(R.string.disconnected));
+                        target.host, target.port, lastSessionError != null
+                                ? lastSessionError : getString(R.string.disconnected));
                 break;
             default:
                 s = String.format(Locale.ROOT, "%s:%d  %s",
-                        target.host, target.port, getString(R.string.connecting));
+                        target.host, target.port, lastSessionError != null
+                                ? lastSessionError : getString(R.string.connecting));
         }
         statusText.setText(s);
         reconnectBtn.setVisibility(state == State.DISCONNECTED ? View.VISIBLE : View.GONE);
@@ -444,19 +467,31 @@ public final class Mirror extends Activity {
     }
 
     private void showDisplayMenu(View anchor) {
+        if (destroyed || displayMenu != null) return;
         menuHandle.wake();
-        PopupMenu menu = new PopupMenu(this, anchor);
+        PopupMenu menu = new PopupMenu(new ContextThemeWrapper(this, R.style.ThemeOverlay_MirrorMenu), anchor);
+        displayMenu = menu;
+        menu.setForceShowIcon(true);
+        menu.getMenu().setGroupDividerEnabled(true);
         menu.getMenu().add(0, 6, 0, R.string.remote_back)
+                .setIcon(R.drawable.ic_menu_back)
                 .setEnabled(state == State.CONNECTED);
-        menu.getMenu().add(0, 3, 1, phoneModeSession ? R.string.remote_home : R.string.open_remote_app)
+        menu.getMenu().add(0, 3, 1, R.string.menu_apps)
+                .setIcon(R.drawable.ic_menu_apps)
                 .setEnabled(state == State.CONNECTED);
-        menu.getMenu().add(0, 7, 2, R.string.rotate_screen);
-        menu.getMenu().add(0, 1, 3, R.string.mode_phone)
+        menu.getMenu().add(0, 7, 2, R.string.rotate_screen)
+                .setIcon(R.drawable.ic_menu_rotate);
+        menu.getMenu().add(1, 1, 3, R.string.menu_phone_mode)
+                .setIcon(R.drawable.ic_menu_phone)
                 .setCheckable(true).setChecked(Settings.phoneMode(this));
-        menu.getMenu().add(0, 2, 4, R.string.mode_original)
+        menu.getMenu().add(1, 2, 4, R.string.menu_original_mode)
+                .setIcon(R.drawable.ic_menu_tablet)
                 .setCheckable(true).setChecked(!Settings.phoneMode(this));
-        menu.getMenu().add(0, 4, 5, R.string.phone_text_size);
-        menu.getMenu().add(0, 5, 6, R.string.leave_mirror);
+        menu.getMenu().setGroupCheckable(1, true, true);
+        menu.getMenu().add(2, 4, 5, R.string.phone_text_size)
+                .setIcon(R.drawable.ic_menu_text_size);
+        menu.getMenu().add(3, 5, 6, R.string.leave_mirror)
+                .setIcon(R.drawable.ic_menu_disconnect);
         menu.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case 1: case 2:
@@ -506,6 +541,7 @@ public final class Mirror extends Activity {
             }
         });
         menu.setOnDismissListener(ignored -> {
+            displayMenu = null;
             if (!destroyed) {
                 ui.post(this::immersive);
                 menuHandle.fadeLater();
@@ -542,12 +578,14 @@ public final class Mirror extends Activity {
         new Thread(() -> {
             try {
                 List<RemoteApps.Entry> apps = current.queryApps();
+                Map<String, Bitmap> icons = RemoteAppIcons.decode(apps);
                 runOnUiThread(() -> {
                     appListLoading = false;
                     boolean show = loading.isShowing();
                     loading.dismiss();
                     if (destroyed || generation != sessionGeneration || state != State.CONNECTED) return;
                     cachedApps = apps;
+                    cachedAppIcons = icons;
                     if (show) showAppList(apps);
                 });
             } catch (Exception e) {
@@ -566,55 +604,15 @@ public final class Mirror extends Activity {
     }
 
     private void showAppList(List<RemoteApps.Entry> apps) {
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        int padding = Math.round(20 * getResources().getDisplayMetrics().density);
-        content.setPadding(padding, 0, padding, 0);
-        TextView note = new TextView(this);
-        note.setText(R.string.phone_app_help);
-        content.addView(note);
-        EditText search = new EditText(this);
-        search.setHint(R.string.search_apps);
-        search.setSingleLine(true);
-        content.addView(search);
-        ListView list = new ListView(this);
-        int height = getWindowManager().getCurrentWindowMetrics().getBounds().height() / 2;
-        content.addView(list, new LinearLayout.LayoutParams(-1, height));
-        ArrayAdapter<RemoteApps.Entry> adapter = new ArrayAdapter<RemoteApps.Entry>(this,
-                android.R.layout.simple_list_item_2, android.R.id.text1, new ArrayList<>(apps)) {
-            @Override public View getView(int position, View convertView, ViewGroup parent) {
-                View row = super.getView(position, convertView, parent);
-                RemoteApps.Entry app = getItem(position);
-                ((TextView) row.findViewById(android.R.id.text1)).setText(app.label);
-                ((TextView) row.findViewById(android.R.id.text2)).setText(app.packageName);
-                return row;
-            }
-        };
-        adapter.setNotifyOnChange(false);
-        list.setAdapter(adapter);
-        AlertDialog picker = new AlertDialog.Builder(this).setTitle(R.string.open_remote_app)
-                .setView(content).setNegativeButton(android.R.string.cancel, null).create();
-        appDialog = picker;
         long generation = sessionGeneration;
-        list.setOnItemClickListener((parent, view, position, id) -> {
-            RemoteApps.Entry app = adapter.getItem(position);
-            if (app != null && generation == sessionGeneration && session != null
+        AlertDialog picker = RemoteAppPicker.create(this, apps, cachedAppIcons, app -> {
+            if (generation == sessionGeneration && session != null
                     && state == State.CONNECTED && session.startApp(app.packageName)) {
                 Settings.setPhoneLastApp(this, app.packageName);
                 Toast.makeText(this, getString(R.string.opening_app, app.label), Toast.LENGTH_SHORT).show();
             }
-            picker.dismiss();
         });
-        search.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                List<RemoteApps.Entry> matches = RemoteApps.filter(apps, s.toString());
-                adapter.clear();
-                adapter.addAll(matches);
-                adapter.notifyDataSetChanged();
-            }
-            @Override public void afterTextChanged(Editable text) {}
-        });
+        appDialog = picker;
         showImmersiveDialog(picker);
     }
 
@@ -684,6 +682,7 @@ public final class Mirror extends Activity {
     @Override
     protected void onDestroy() {
         destroyed = true;
+        if (displayMenu != null) displayMenu.dismiss();
         if (menuHandle != null) menuHandle.dispose();
         if (appDialog != null) appDialog.dismiss();
         sessionGeneration++;
@@ -741,9 +740,9 @@ public final class Mirror extends Activity {
 
     // Missing rows fail closed. A stale notification, restored task, or
     // malformed internal intent must not create a session for an unsaved row.
-    private Devices.Device resolveTarget(String host, int port) {
+    private Devices.Device resolveTarget(String id, String host, int port) {
         try {
-            return Devices.find(this, host, port);
+            return id != null ? Devices.findById(this, id) : Devices.find(this, host, port);
         } catch (java.io.IOException e) {
             Log.e(e, "mirror: cannot read paired devices");
             return null;
@@ -757,6 +756,7 @@ public final class Mirror extends Activity {
         Intent i = new Intent(this, Sessions.class);
         i.putExtra(EXTRA_HOST, target.host);
         i.putExtra(EXTRA_PORT, target.port);
+        i.putExtra(EXTRA_DEVICE_ID, target.id);
         startForegroundService(i);
     }
 

@@ -39,6 +39,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.github.muntashirakon.adb.AdbConnection;
 import io.github.muntashirakon.adb.AdbStream;
@@ -124,7 +126,7 @@ public final class Adb {
 
     // Pairing authenticates the six-digit-code exchange with SPAKE2 and
     // authorizes this app's stable client key on the target.
-    public synchronized void pairDevice(String host, int port, String code) throws Exception {
+    public synchronized String pairDevice(String host, int port, String code) throws Exception {
         validateEndpoint(host, port);
         if (code == null || !code.matches("[0-9]{6}")) {
             throw new IllegalArgumentException("pairing code must be exactly six digits");
@@ -134,6 +136,7 @@ public final class Adb {
             try (PairingConnectionCtx pairing = new PairingConnectionCtx(
                     host, port, password, privateKey, certificate, DEVICE_NAME)) {
                 pairing.start();
+                return pairing.getPeerGuid();
             }
         } finally {
             Arrays.fill(password, (byte) 0);
@@ -194,6 +197,42 @@ public final class Adb {
     }
 
     // ---- typed openers ----
+
+    // Read only after ADB authentication and before starting the remote server.
+    // Bound both the output and read time so discovery cannot stall bring-up.
+    public String readDeviceGuid() throws Exception {
+        AdbStream stream = openShell("getprop persist.adb.wifi.guid");
+        CountDownLatch done = new CountDownLatch(1);
+        AtomicBoolean timedOut = new AtomicBoolean();
+        Thread deadline = new Thread(() -> {
+            try {
+                if (!done.await(3, TimeUnit.SECONDS)) {
+                    timedOut.set(true);
+                    try { stream.close(); } catch (IOException ignored) {}
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }, "device-guid-deadline");
+        deadline.setDaemon(true);
+        deadline.start();
+        try (stream; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            InputStream input = stream.openInputStream();
+            byte[] buffer = new byte[512];
+            for (int count; (count = input.read(buffer)) >= 0;) {
+                if (count == 0 || out.size() + count > 1024) {
+                    throw new IOException("Invalid device GUID output");
+                }
+                out.write(buffer, 0, count);
+            }
+            if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+            if (timedOut.get()) throw new IOException("Device GUID query timed out");
+            return Devices.normalizeGuid(Wire.decodeUtf8(out.toByteArray()).trim());
+        } finally {
+            done.countDown();
+            deadline.interrupt();
+        }
+    }
 
     public synchronized AdbStream openAbstract(String name) throws IOException, InterruptedException {
         if (name == null || name.isEmpty() || name.length() > 255 || name.indexOf('\0') >= 0) {

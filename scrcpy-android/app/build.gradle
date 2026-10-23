@@ -18,8 +18,8 @@ android {
         applicationId 'invalid.lena.scrfix'
         minSdk 31
         targetSdk 36
-        versionCode 14
-        versionName '0.6.8-phone'
+        versionCode 20
+        versionName '0.6.14-phone'
     }
 
     // AGP otherwise embeds a Google-signed dependency-metadata blob in the

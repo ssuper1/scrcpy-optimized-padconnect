@@ -36,7 +36,8 @@
             android:textColor="#ffffff"
             android:textSize="14sp"
             android:fontFamily="monospace"
-            android:singleLine="true"
+            android:maxLines="5"
+            android:textIsSelectable="true"
             android:ellipsize="end"
             android:text="@string/connecting"/>
         <Button

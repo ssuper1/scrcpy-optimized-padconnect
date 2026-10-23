@@ -41,6 +41,7 @@ public final class Session {
         // Followed by onConnected (recovered), onError (gave up), or
         // onStopped alone (user stop() raced the reconnect).
         default void onReconnecting() {}
+        default void onTargetResolved(Devices.Device target) {}
         default void onDisplayScaleError() {}
         // Fatal: a retry budget ran out, or the failure was not
         // retriable. Always followed by onStopped().
@@ -76,7 +77,7 @@ public final class Session {
 
     private final Context        ctx;
     private final Adb            adb;
-    private final Devices.Device target;
+    private Devices.Device target;
     private volatile Surface     surface;
     private volatile PhoneDisplay phoneDisplay;
     private final Listener       listener;
@@ -390,9 +391,24 @@ public final class Session {
     }
 
     private void bringUpAttempt() throws Exception {
-        Log.i("session: connect %s:%d", target.host, target.port);
+        Devices.Device saved = Devices.findById(ctx, target.id);
+        if (saved == null) throw new IOException("Device was removed; select a saved device");
+        Devices.Device endpoint = saved;
+        if (saved.guid != null) {
+            try (AdbDiscovery discovery = new AdbDiscovery(ctx, null)) {
+                endpoint = discovery.awaitTarget(saved);
+            }
+        }
+        if (stopped || Thread.currentThread().isInterrupted()) throw new InterruptedException();
+        Log.i("session: connect %s:%d", endpoint.host, endpoint.port);
         adb.disconnect();
-        adb.connect(target.host, target.port);
+        Devices.Device updated = DeviceConnector.connect(saved, endpoint, new DeviceConnector.Connection() {
+            @Override public void connect(String host, int port) throws Exception { adb.connect(host, port); }
+            @Override public String readGuid() throws Exception { return adb.readDeviceGuid(); }
+        }, () -> stopped);
+        // Always check the saved row still exists, even when the address is unchanged.
+        target = Devices.replace(ctx, saved, updated);
+        if (listener != null) listener.onTargetResolved(target);
         Log.i("adb connect ok");
 
         Server srv = null;

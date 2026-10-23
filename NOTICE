@@ -11,6 +11,9 @@ scrcpy-android
   Local changes include Android compatibility repairs, a phone-shaped virtual
   display, remote application selection, display density controls, rotation,
   immersive controller UI, an edge menu, Chinese resources, and associated tests.
+  Paired-device mDNS discovery, GUID-based address refresh, and manual endpoint
+  editing preserve existing pairing when wireless-debugging ports change.
+  The edge menu uses grouped actions, vector icons and a rounded popup theme.
   Build configuration, embedded server assets and root integration also differ
   from upstream. See PHONE-MODE.md and Git history for details.
 
@@ -22,6 +25,9 @@ scrcpy
   server/src/main/java/com/genymobile/scrcpy/video/NewDisplayCapture.java;
   added server/src/test/java/com/genymobile/scrcpy/video/NewDisplayCaptureTest.java.
   Virtual display rendering dimensions are separated from encoded video size.
+  Additional local changes in Server.java and Options.java, with the new
+  util/AppIcons.java helper and AppIconsOptionsTest.java, optionally export
+  launcher icons alongside the remote app list for the phone client.
   The embedded server binary is built from this modified source.
 
 libadb-android
@@ -29,6 +35,8 @@ libadb-android
   Vendored base recorded by scrcpy-android: 3.1.1,
   c849886ebc6d48e7b46d967e78a6bb65c90c3b74.
   Vendored integration includes the changes described in its README.
+  PairingConnectionCtx additionally exposes the authenticated peer GUID after
+  successful pairing, with bounded GUID parsing and associated unit tests.
   See scrcpy-android/vendor/libadb-android/COPYING and LICENSES/ for its
   license choices, bundled component licenses and copyright notices.
 

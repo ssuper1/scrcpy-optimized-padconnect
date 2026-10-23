@@ -2,6 +2,22 @@
 <!-- Reusable widget styles. Applied per-widget via style="@style/..." so
      behaviour stays explicit and visible at the call site. -->
 <resources>
+    <style name="ThemeOverlay.MirrorMenu" parent="">
+        <item name="android:popupMenuStyle">@style/MirrorPopupMenu</item>
+        <item name="android:textAppearanceLargePopupMenu">@style/MirrorMenuText</item>
+        <item name="android:textAppearanceSmallPopupMenu">@style/MirrorMenuText</item>
+    </style>
+
+    <style name="MirrorPopupMenu" parent="@android:style/Widget.Material.PopupMenu">
+        <item name="android:popupBackground">@drawable/bg_mirror_menu</item>
+        <item name="android:popupElevation">12dp</item>
+    </style>
+
+    <style name="MirrorMenuText" parent="@android:style/TextAppearance.Material.Widget.PopupMenu.Large">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/menu_text</item>
+    </style>
+
     <style name="Card">
         <item name="android:orientation">vertical</item>
         <item name="android:background">@drawable/bg_card</item>

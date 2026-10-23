@@ -17,6 +17,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
@@ -56,6 +57,28 @@ public final class PairingConnectionCtx implements Closeable {
     private PairingAuthCtx mPairingAuthCtx;
     private Socket mSocket;
     private State mState = State.Ready;
+    private String mPeerGuid;
+
+    /** GUID authenticated by the pairing exchange, available after start() succeeds. */
+    @Nullable
+    public String getPeerGuid() {
+        return mPeerGuid;
+    }
+
+    static String parsePeerGuid(byte[] data) throws IOException {
+        int length = 0;
+        while (length < data.length && data[length] != 0) {
+            int value = data[length] & 0xff;
+            if (value < 0x21 || value > 0x7e || length >= 255) {
+                throw new IOException("Invalid pairing device GUID");
+            }
+            length++;
+        }
+        if (length == 0 || length == data.length) {
+            throw new IOException("Empty or unterminated pairing device GUID");
+        }
+        return new String(data, 0, length, StandardCharsets.US_ASCII);
+    }
 
     public PairingConnectionCtx(@NonNull String host, int port, @NonNull byte[] pswd, @NonNull KeyPair keyPair,
                                 @NonNull String deviceName)
@@ -259,6 +282,7 @@ public final class PairingConnectionCtx implements Closeable {
             Log.e(TAG, "Pairing peer sent an empty device GUID");
             return false;
         }
+        mPeerGuid = parsePeerGuid(theirPeerInfo.data);
         return true;
     }
 
