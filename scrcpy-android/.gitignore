@@ -1,0 +1,16 @@
+.gradle/
+.tools/
+build/
+local.properties
+app/release/
+*.jks
+*.keystore
+*.p12
+*.pfx
+
+# Bundled server is tracked in padconnect so a clean clone can build offline
+# with respect to this asset. Regenerate using ../scripts/build-server.ps1.
+
+# ADB identity files are runtime secrets; never check them in.
+adbkey
+adbcert

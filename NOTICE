@@ -1,0 +1,36 @@
+padconnect — locally modified scrcpy-android distribution
+
+This repository preserves upstream source notices and license files.
+Local modifications and integration are maintained by ssuper1, 2026.
+This is an independent modified version, not an official upstream release.
+
+scrcpy-android
+  Source: https://gitlab.com/0xlena/scrcpy-android
+  Base commit: 4341eb16f2ff3233599b1f42c91105f424bc016a (0.5)
+  License: Apache License 2.0; see scrcpy-android/LICENSE.
+  Local changes include Android compatibility repairs, a phone-shaped virtual
+  display, remote application selection, display density controls, rotation,
+  immersive controller UI, an edge menu, Chinese resources, and associated tests.
+  Build configuration, embedded server assets and root integration also differ
+  from upstream. See PHONE-MODE.md and Git history for details.
+
+scrcpy
+  Source: https://github.com/Genymobile/scrcpy
+  Base commit: 2926c06c5dc3064ae6d8db706f1a98a37cfcf3f0 (4.1)
+  License: Apache License 2.0; see scrcpy-android/vendor/scrcpy/LICENSE.
+  Local changes: server/build.gradle and
+  server/src/main/java/com/genymobile/scrcpy/video/NewDisplayCapture.java;
+  added server/src/test/java/com/genymobile/scrcpy/video/NewDisplayCaptureTest.java.
+  Virtual display rendering dimensions are separated from encoded video size.
+  The embedded server binary is built from this modified source.
+
+libadb-android
+  Source: https://github.com/MuntashirAkon/libadb-android
+  Vendored base recorded by scrcpy-android: 3.1.1,
+  c849886ebc6d48e7b46d967e78a6bb65c90c3b74.
+  Vendored integration includes the changes described in its README.
+  See scrcpy-android/vendor/libadb-android/COPYING and LICENSES/ for its
+  license choices, bundled component licenses and copyright notices.
+
+The upstream repositories are vendored as ordinary files here, including
+local changes. Upstream license and copyright notices remain in place.

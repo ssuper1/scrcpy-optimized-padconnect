@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="remote_back">返回</string>
+    <string name="remote_home">桌面 / 应用</string>
+    <string name="rotate_screen">旋转屏幕</string>
+    <string name="address_hint">192.168.1.42:41234</string>
+    <string name="pair_port_hint">37123</string>
+    <string name="bad_address">请按 192.168.1.42:41234 的格式填写设备地址</string>
+    <string name="bad_pair_port">配对端口必须是 1 到 65535 之间的数字</string>
+    <string name="bad_pair_code">请输入六位配对码</string>
+    <string name="device_not_paired">该设备尚未配对，请返回设备列表重新配对。</string>
+    <string name="device_list_unreadable">无法读取已配对设备列表，原有数据已保留。</string>
+    <string name="network_trust">请在可信网络或 VPN 中使用。ADB 无法验证目标身份，连接到此地址的设备可能收到你输入的内容。</string>
+    <string name="licenses_unavailable">暂时无法读取许可信息。</string>
+    <string name="video_h264">H.264（默认）</string>
+    <string name="video_h265">H.265</string>
+    <string name="video_av1">AV1（被控设备需要 Android 14 以上）</string>
+    <string name="audio_raw">原始 PCM（1.5 Mbps）</string>
+    <string name="audio_opus">Opus（约 128 kbps，默认）</string>
+    <string name="forget_device">忘记此设备？</string>
+    <string name="max_size_480">480</string>
+    <string name="max_size_720">720</string>
+    <string name="max_size_1440">1440</string>
+    <string name="max_size_2160">2160</string>
+    <string name="bit_rate_1m">1 Mbps</string>
+    <string name="bit_rate_2m">2 Mbps</string>
+    <string name="bit_rate_8m">8 Mbps</string>
+    <string name="bit_rate_16m">16 Mbps</string>
+    <string name="session_stop_timeout">上一次连接未能停止，已取消重新连接。</string>
+    <string name="app_name">scrcpy 手机模式</string>
+    <string name="settings">设置</string>
+    <string name="label_address">设备地址</string>
+    <string name="sub_address">平板「无线调试」主页显示的 IP 地址和端口</string>
+    <string name="label_pairing">配对端口和配对码</string>
+    <string name="sub_pairing">填写「使用配对码配对设备」弹窗里的端口和六位配对码</string>
+    <string name="pair_code_hint">六位配对码</string>
+    <string name="pair_help">平板：设置 → 开发者选项 → 无线调试</string>
+    <string name="pair_and_save">配对并保存</string>
+    <string name="pair_a_device">配对设备</string>
+    <string name="saved_devices">已保存设备（点击连接）</string>
+    <string name="version_format">版本 %1$s（%2$d）</string>
+    <string name="display_mode">显示模式</string>
+    <string name="menu_handle_hint">菜单：点击打开，拖动可换位置</string>
+    <string name="mode_phone">手机模式 · 适配本机比例</string>
+    <string name="mode_original">原始比例 · 显示平板屏幕</string>
+    <string name="phone_mode_help">手机模式在平板上创建独立屏幕，应用按手机比例显示，与平板桌面不同。应用不兼容时可切回原始比例。</string>
+    <string name="phone_text_size">文字与按钮大小</string>
+    <string name="phone_scale_unverified">平板未确认界面大小已生效，大小可能未改变，可尝试重新连接。</string>
+    <string name="phone_scale_requires_phone_mode">调整界面大小需要手机模式。是否切换到独立屏幕并应用所选大小？</string>
+    <string name="use_phone_mode">切换并应用</string>
+    <string name="open_remote_app">选择平板上的应用</string>
+    <string name="leave_mirror">断开并退出</string>
+    <string name="loading_apps">正在读取平板应用…</string>
+    <string name="search_apps">搜索应用名称或包名</string>
+    <string name="phone_app_help">应用在手机专用屏幕内运行；平板主屏切换应用不会同步到这里。点屏幕侧边的小把手 → 桌面 / 应用切换；把手可拖动换位置。</string>
+    <string name="opening_app">正在打开 %1$s</string>
+    <string name="app_list_failed">无法读取平板应用：%1$s。可点侧边菜单把手切换回原始比例。</string>
+    <string-array name="phone_text_sizes">
+        <item>更小（75%）</item>
+        <item>紧凑（85%）</item>
+        <item>标准</item>
+        <item>大（125%）</item>
+        <item>特大（150%）</item>
+    </string-array>
+    <string name="settings_apply_on_reconnect">设置在下次连接时生效。投屏中可点侧边菜单把手切换。</string>
+    <string name="connecting">正在连接…</string>
+    <string name="disconnected">连接已断开</string>
+    <string name="reconnect">重新连接</string>
+    <string name="session_error">连接失败：%1$s</string>
+    <string name="hint_back">返回键操作平板；快速连按两次退出投屏。</string>
+    <string name="pairing">正在配对…</string>
+    <string name="notif_session_active">正在控制远程设备</string>
+    <string name="display">显示</string>
+    <string name="video_codec">视频编码</string>
+    <string name="audio_codec">声音编码</string>
+    <string name="max_size">画面最长边（像素）</string>
+    <string name="max_size_original">不限制</string>
+    <string name="max_size_1080">1080（默认）</string>
+    <string name="video_bit_rate">视频码率</string>
+    <string name="bit_rate_4m">4 Mbps（默认）</string>
+    <string name="clipboard_sync">同步剪贴板</string>
+    <string name="licenses">开源许可</string>
+    <string name="no_devices_yet">还没有已配对设备，请填写上方信息并点击「配对并保存」。</string>
+</resources>

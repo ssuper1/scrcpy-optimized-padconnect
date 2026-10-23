@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modified for padconnect (2026); see the root NOTICE for changes and upstream provenance. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">scrcpy 手机模式</string>
+    <string name="remote_back">Back</string>
+    <string name="remote_home">Home / Apps</string>
+    <string name="rotate_screen">Rotate screen</string>
+    <string name="display_mode">Display mode</string>
+    <string name="menu_handle_hint">Menu: tap to open, drag to move</string>
+    <string name="mode_phone">Phone mode · fit this screen</string>
+    <string name="mode_original">Original screen · keep tablet ratio</string>
+    <string name="phone_mode_help">Phone mode opens apps on a separate screen on the target. It does not mirror the tablet desktop. Switch to Original screen if an app does not support it.</string>
+    <string name="phone_text_size">Text and button size</string>
+    <string name="open_remote_app">Open a target app</string>
+    <string name="leave_mirror">Disconnect and leave</string>
+    <string name="loading_apps">Loading target apps…</string>
+    <string name="search_apps">Search app name or package</string>
+    <string name="phone_app_help">Apps run on a separate phone screen. Switching apps on the tablet main screen does not switch this screen. Tap the edge handle → Home / Apps to switch.</string>
+    <string name="opening_app">Opening %1$s</string>
+    <string name="app_list_failed">Could not load target apps: %1$s. You can switch to Original screen from Menu.</string>
+    <string-array name="phone_text_sizes">
+        <item>Extra compact (75%)</item>
+        <item>Compact (85%)</item>
+        <item>Standard</item>
+        <item>Large (125%)</item>
+        <item>Extra large (150%)</item>
+    </string-array>
+    <string name="address_hint">192.168.1.42:41234</string>
+    <string name="pair_port_hint">37123</string>
+    <string name="pair_code_hint">6 digits</string>
+    <string name="pair_help">On the target: Settings &gt; Developer options &gt; Wireless debugging</string>
+    <string name="label_address">Device address</string>
+    <string name="sub_address">The “IP address &amp; Port” on the Wireless debugging screen</string>
+    <string name="label_pairing">Pairing port and code</string>
+    <string name="sub_pairing">From the “Pair device with pairing code” dialog. Same IP, different port</string>
+    <string name="bad_address">Enter the device address as 192.168.1.42:41234</string>
+    <string name="bad_pair_port">Pairing port must be a number from 1 to 65535</string>
+    <string name="bad_pair_code">Enter the 6-digit pairing code</string>
+    <string name="device_not_paired">This target is not paired. Pair it again from the device list.</string>
+    <string name="device_list_unreadable">The paired-device list could not be read; it was left unchanged.</string>
+    <string name="network_trust">Use only on a network you trust, or over a VPN. ADB cannot verify the target\'s identity, so anything answering this address could receive what you type.</string>
+    <string name="pair_and_save">Pair and save</string>
+    <string name="pair_a_device">Pair a device</string>
+    <string name="saved_devices">Saved devices</string>
+    <string name="notif_session_active">Mirroring active</string>
+    <string name="settings">Settings</string>
+    <string name="version_format">Version %1$s (%2$d)</string>
+    <string name="licenses">Open-source licenses</string>
+    <string name="licenses_unavailable">Notices unavailable.</string>
+    <string name="video_codec">Video codec</string>
+    <string name="audio_codec">Audio codec</string>
+    <string name="video_h264">H.264 (default)</string>
+    <string name="video_h265">H.265</string>
+    <string name="video_av1" tools:ignore="Typos">AV1 (target Android 14+)</string>
+    <string name="audio_raw">Raw PCM (1.5 Mbps)</string>
+    <string name="audio_opus">Opus (~128 kbps, default)</string>
+    <string name="forget_device">Forget device?</string>
+    <string name="max_size">Max size (long edge, px)</string>
+    <string name="max_size_original">Original</string>
+    <string name="max_size_480">480</string>
+    <string name="max_size_720">720</string>
+    <string name="max_size_1080">1080 (default)</string>
+    <string name="max_size_1440">1440</string>
+    <string name="max_size_2160">2160</string>
+    <string name="video_bit_rate">Video bit rate</string>
+    <string name="bit_rate_1m">1 Mbps</string>
+    <string name="bit_rate_2m">2 Mbps</string>
+    <string name="bit_rate_4m">4 Mbps (default)</string>
+    <string name="bit_rate_8m">8 Mbps</string>
+    <string name="bit_rate_16m">16 Mbps</string>
+    <string name="reconnect">Reconnect</string>
+    <string name="connecting">connecting…</string>
+    <string name="disconnected">disconnected</string>
+    <string name="session_error">Session error: %1$s</string>
+    <string name="session_stop_timeout">The old session did not stop. Reconnect was cancelled.</string>
+    <string name="hint_back">Back goes to the target. Press Back twice to leave.</string>
+    <string name="pairing">Pairing…</string>
+    <string name="settings_apply_on_reconnect">Changes apply on the next connection.</string>
+    <string name="phone_scale_unverified">The tablet did not confirm the interface size. It may remain unchanged; try reconnecting.</string>
+    <string name="phone_scale_requires_phone_mode">Interface size applies in Phone mode. Switch to its independent screen and apply this size?</string>
+    <string name="use_phone_mode">Switch and apply</string>
+    <string name="display">Display</string>
+    <string name="clipboard_sync">Sync clipboard with the target</string>
+    <string name="no_devices_yet">No devices paired yet - fill the fields above and tap Pair.</string>
+</resources>
