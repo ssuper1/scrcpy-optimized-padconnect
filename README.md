@@ -1,4 +1,4 @@
-# padconnect
+# scrcpy-优化(padconnect)
 
 基于 **scrcpy-android 0.5** 修改的 Android 手机控制平板工具。当前版本：**0.6.14-phone**。
 
