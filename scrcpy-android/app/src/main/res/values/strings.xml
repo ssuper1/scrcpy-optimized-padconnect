@@ -3,7 +3,33 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">scrcpy 手机模式</string>
     <string name="remote_back">Back</string>
+    <string name="wake_tablet">Wake tablet</string>
+    <string name="keep_tablet_awake">Keep tablet awake while connected</string>
+    <string name="keep_tablet_awake_reconnecting">Reconnecting to apply screen timeout setting…</string>
+    <string name="keep_tablet_awake_failed">Could not confirm tablet keep-awake. Check its screen timeout or use Wake tablet.</string>
+    <string name="wake_tablet_sent">Wake command sent. Unlock the tablet if prompted.</string>
+    <string name="wake_tablet_failed">Could not wake tablet: %1$s</string>
     <string name="menu_apps">Apps and favorites</string>
+    <string name="menu_group_common">Quick actions</string>
+    <string name="menu_group_display">Display</string>
+    <string name="menu_group_device">Connection</string>
+    <string name="menu_apps_short">Apps</string>
+    <string name="menu_recent_short">Recent</string>
+    <string name="menu_phone_short">Phone ratio</string>
+    <string name="menu_tablet_short">Tablet ratio</string>
+    <string name="menu_rotate_short">Rotate</string>
+    <string name="menu_text_short">Text size</string>
+    <string name="menu_navigation_short">Navigation</string>
+    <string name="menu_awake_short">Keep awake</string>
+    <string name="menu_wake_short">Wake</string>
+    <string name="menu_disconnect_short">Disconnect</string>
+    <string name="menu_option_selected">Selected</string>
+    <string name="menu_option_unselected">Not selected</string>
+    <string name="app_grid">App grid</string>
+    <string name="recent_apps">Recently opened</string>
+    <string name="clear_recent_apps">Clear</string>
+    <string name="no_recent_apps">No recent apps yet. Open an app from the app grid first.</string>
+    <string name="show_floating_navigation">Show floating navigation</string>
     <string name="menu_phone_mode">Phone aspect ratio</string>
     <string name="menu_original_mode">Tablet aspect ratio</string>
     <string name="rotate_screen">Rotate screen</string>
@@ -36,15 +62,21 @@
         <item>Large (125%)</item>
         <item>Extra large (150%)</item>
     </string-array>
-    <string name="address_hint">192.168.1.42:41234</string>
+    <string name="address_default_prefix" translatable="false">192.168.10.</string>
+    <string name="address_suffix_example" translatable="false">4:43399</string>
+    <string name="address_hint">192.168.10.4:43399</string>
     <string name="pair_port_hint">37123</string>
     <string name="pair_code_hint">6 digits</string>
+    <string name="pair_port_label">Pairing port</string>
+    <string name="sub_pair_port">The five digits after the colon in the dialog’s IP address and port</string>
+    <string name="pair_code_label">Wi-Fi pairing code</string>
+    <string name="sub_pair_code">The six-digit Wi-Fi pairing code shown in the dialog</string>
     <string name="pair_help">On the target: Settings &gt; Developer options &gt; Wireless debugging</string>
-    <string name="label_address">Device address</string>
+    <string name="label_address">IP address and port</string>
     <string name="sub_address">The “IP address &amp; Port” on the Wireless debugging screen</string>
     <string name="label_pairing">Pairing port and code</string>
-    <string name="sub_pairing">From the “Pair device with pairing code” dialog. Same IP, different port</string>
-    <string name="bad_address">Enter the device address as 192.168.1.42:41234</string>
+    <string name="sub_pairing">Enter the values from the “Pair device with pairing code” dialog</string>
+    <string name="bad_address">Enter the complete IP address and port, for example 192.168.10.4:43399</string>
     <string name="bad_pair_port">Pairing port must be a number from 1 to 65535</string>
     <string name="bad_pair_code">Enter the 6-digit pairing code</string>
     <string name="device_not_paired">This target is not paired. Pair it again from the device list.</string>
@@ -96,7 +128,7 @@
     <string name="disconnected">disconnected</string>
     <string name="session_error">Session error: %1$s</string>
     <string name="session_stop_timeout">The old session did not stop. Reconnect was cancelled.</string>
-    <string name="hint_back">Back goes to the target. Press Back twice to leave.</string>
+    <string name="hint_back">Back returns to the previous screen on the target. Use the side menu to disconnect.</string>
     <string name="pairing">Pairing…</string>
     <string name="settings_apply_on_reconnect">Changes apply on the next connection.</string>
     <string name="phone_scale_unverified">The tablet did not confirm the interface size. It may remain unchanged; try reconnecting.</string>

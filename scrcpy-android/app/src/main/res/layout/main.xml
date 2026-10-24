@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Modified for padconnect (2026); see the root NOTICE for changes and upstream provenance. -->
 <!-- One scroll for the whole page. The saved-device rows are built into
      the LinearLayout below rather than a ListView, because a ListView
      inside a ScrollView cannot measure itself and splitting the screen
@@ -89,15 +90,45 @@
                 android:layout_height="wrap_content"
                 android:text="@string/sub_address"/>
 
-            <EditText
-                android:id="@+id/device_address"
-                style="@style/Field"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/space_xs"
-                android:hint="@string/address_hint"
-                android:inputType="textUri"
-                android:importantForAutofill="no"/>
+                android:layout_marginTop="@dimen/space_xs">
+
+                <EditText
+                    android:id="@+id/device_address"
+                    style="@style/Field"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/address_default_prefix"
+                    android:hint="@string/address_hint"
+                    android:textSize="18sp"
+                    android:textDirection="ltr"
+                    android:gravity="start|center_vertical"
+                    android:singleLine="true"
+                    android:imeOptions="actionNext"
+                    android:nextFocusForward="@+id/pair_port"
+                    android:inputType="textUri"
+                    android:importantForAutofill="no"/>
+
+                <!-- Visual hint only: the suffix is never part of the input. -->
+                <TextView
+                    android:id="@+id/address_suffix_hint"
+                    style="@style/Field"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@null"
+                    android:textColor="@color/on_surface_muted"
+                    android:textSize="18sp"
+                    android:textDirection="ltr"
+                    android:gravity="start|center_vertical"
+                    android:singleLine="true"
+                    android:clickable="false"
+                    android:longClickable="false"
+                    android:focusable="false"
+                    android:importantForAccessibility="no"/>
+
+            </FrameLayout>
 
             <TextView
                 style="@style/FieldLabel"
@@ -111,35 +142,56 @@
                 android:layout_height="wrap_content"
                 android:text="@string/sub_pairing"/>
 
-            <LinearLayout
+            <TextView
+                style="@style/FieldLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/pair_port_label"/>
+
+            <TextView
+                style="@style/Caption"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="@dimen/space_xs">
+                android:text="@string/sub_pair_port"/>
 
-                <EditText
-                    android:id="@+id/pair_port"
-                    style="@style/Field"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="@dimen/space_sm"
-                    android:hint="@string/pair_port_hint"
-                    android:inputType="number"
-                    android:importantForAutofill="no"/>
+            <EditText
+                android:id="@id/pair_port"
+                style="@style/Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_xs"
+                android:hint="@string/pair_port_hint"
+                android:inputType="number"
+                android:singleLine="true"
+                android:maxLength="5"
+                android:imeOptions="actionNext"
+                android:nextFocusForward="@+id/pair_code"
+                android:importantForAutofill="no"/>
 
-                <EditText
-                    android:id="@+id/pair_code"
-                    style="@style/Field"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:hint="@string/pair_code_hint"
-                    android:inputType="numberPassword"
-                    android:maxLength="6"
-                    android:importantForAutofill="no"/>
+            <TextView
+                style="@style/FieldLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/pair_code_label"/>
 
-            </LinearLayout>
+            <TextView
+                style="@style/Caption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/sub_pair_code"/>
+
+            <EditText
+                android:id="@id/pair_code"
+                style="@style/Field"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_xs"
+                android:hint="@string/pair_code_hint"
+                android:inputType="numberPassword"
+                android:singleLine="true"
+                android:imeOptions="actionDone"
+                android:maxLength="6"
+                android:importantForAutofill="no"/>
 
             <TextView
                 style="@style/Caption"

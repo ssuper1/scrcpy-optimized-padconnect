@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Modified for padconnect (2026); see the root NOTICE for changes and upstream provenance. -->
 <!-- Dark palette built around the launcher icon's CRT-blue. The light
      foreground (#E8E8E8) matches the icon; the cyan/teal accent tints
      interactive controls. Hex values live here only; layouts reference

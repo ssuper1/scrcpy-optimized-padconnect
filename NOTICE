@@ -1,25 +1,41 @@
-padconnect — locally modified scrcpy-android distribution
+scrcpy-优化(padconnect) — locally modified scrcpy-android distribution
 
 This repository preserves upstream source notices and license files.
 Local modifications and integration are maintained by ssuper1, 2026.
+Copyright (C) 2026 ssuper1 (local modifications only).
 This is an independent modified version, not an official upstream release.
+Modified source: https://github.com/ssuper1/scrcpy-optimized-padconnect
+Release source tag: v0.6.15-phone. Later changes are recorded in Git history.
 
 scrcpy-android
   Source: https://gitlab.com/0xlena/scrcpy-android
   Base commit: 4341eb16f2ff3233599b1f42c91105f424bc016a (0.5)
   License: Apache License 2.0; see scrcpy-android/LICENSE.
+  Upstream author: 0xlena and contributors; original notices are retained.
   Local changes include Android compatibility repairs, a phone-shaped virtual
   display, remote application selection, display density controls, rotation,
   immersive controller UI, an edge menu, Chinese resources, and associated tests.
   Paired-device mDNS discovery, GUID-based address refresh, and manual endpoint
   editing preserve existing pairing when wireless-debugging ports change.
   The edge menu uses grouped actions, vector icons and a rounded popup theme.
+  Further local changes add a persistent optional navigation overlay, an app
+  grid, per-device recent launch history, and ordinary Back key injection
+  without the upstream Back-or-screen-on Power fallback.
+  Phone-mode virtual system decorations are disabled in favor of the overlay;
+  this may also hide the virtual status bar. Main-display mirroring is unchanged.
+  A controller menu action sends a dedicated wake-up key to the physical main
+  display over ADB, with bounded command reads and execution acknowledgment.
+  The client also requests a temporary screen-off timeout during control,
+  with restoration handled by the upstream server cleanup process. Compact
+  grid controls, recent-history clearing and pairing hints are also local changes.
   Build configuration, embedded server assets and root integration also differ
   from upstream. See PHONE-MODE.md and Git history for details.
 
 scrcpy
   Source: https://github.com/Genymobile/scrcpy
   Base commit: 2926c06c5dc3064ae6d8db706f1a98a37cfcf3f0 (4.1)
+  Copyright (C) 2018 Genymobile
+  Copyright (C) 2018-2026 Romain Vimont
   License: Apache License 2.0; see scrcpy-android/vendor/scrcpy/LICENSE.
   Local changes: server/build.gradle and
   server/src/main/java/com/genymobile/scrcpy/video/NewDisplayCapture.java;
@@ -42,3 +58,10 @@ libadb-android
 
 The upstream repositories are vendored as ordinary files here, including
 local changes. Upstream license and copyright notices remain in place.
+
+Distribution notices
+  THIRD_PARTY_LICENSES/ contains additional upstream license and attribution
+  texts. The client packages this NOTICE, the Apache-2.0 license,
+  libadb-android's COPYING and LICENSES files, and those additional texts into
+  OPEN_SOURCE_LICENSES. Settings -> Open-source licenses displays them offline.
+  THIRD_PARTY_NOTICES records the component versions and corresponding sources.

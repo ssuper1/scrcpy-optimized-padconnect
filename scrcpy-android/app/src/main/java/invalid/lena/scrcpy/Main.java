@@ -1,11 +1,18 @@
+// Modified for padconnect (2026); see the root NOTICE for changes and upstream provenance.
 package invalid.lena.scrcpy;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.graphics.Color;
+import android.text.Editable;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.InputType;
+import android.text.TextWatcher;
+import android.text.style.ForegroundColorSpan;
 import android.view.View;
 import android.view.WindowInsets;
 import android.widget.Button;
@@ -54,6 +61,7 @@ public final class Main extends Activity {
         EditText address     = findViewById(R.id.device_address);
         EditText pairPort    = findViewById(R.id.pair_port);
         EditText pairCode    = findViewById(R.id.pair_code);
+        setupAddressHint(address);
         pairButton           = findViewById(R.id.pair);
         View settingsBtn     = findViewById(R.id.settings);
         deviceList  = findViewById(R.id.devices);
@@ -116,6 +124,26 @@ public final class Main extends Activity {
             pairButton.setEnabled(false);
             Toast.makeText(this, R.string.pairing, Toast.LENGTH_SHORT).show();
             new Thread(() -> pairAndSave(target, pairP, pc, pairButton), "pair").start();
+        });
+    }
+
+    private void setupAddressHint(EditText address) {
+        TextView suffixHint = findViewById(R.id.address_suffix_hint);
+        String prefix = getString(R.string.address_default_prefix);
+        SpannableString example = new SpannableString(prefix + getString(R.string.address_suffix_example));
+        // Match the EditText's typography and reserve the exact width of the
+        // real prefix. The grey suffix is decorative and is never submitted.
+        example.setSpan(new ForegroundColorSpan(Color.TRANSPARENT), 0, prefix.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        suffixHint.setText(example);
+        suffixHint.setVisibility(TextUtils.equals(address.getText(), prefix) ? View.VISIBLE : View.GONE);
+        address.setSelection(address.length());
+        address.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence text, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence text, int start, int before, int count) {
+                suffixHint.setVisibility(TextUtils.equals(text, prefix) ? View.VISIBLE : View.GONE);
+            }
+            @Override public void afterTextChanged(Editable text) {}
         });
     }
 

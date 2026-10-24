@@ -58,13 +58,37 @@ public class SettingsFavoritesTest {
         assertEquals(Collections.singleton("com.example.a"), Settings.favoriteApps(store.context()));
     }
 
+    @Test public void clearingRecentAppsOnlyClearsTheSelectedDeviceAndPreservesFavorites() {
+        PreferenceStore store = new PreferenceStore();
+        Settings.setAppFavorite(store.context(), "com.example.a", true);
+        Settings.recordRecentApp(store.context(), "tablet-a", "com.example.a");
+        Settings.recordRecentApp(store.context(), "tablet-b", "com.example.b");
+
+        Settings.clearRecentApps(store.context(), "tablet-a");
+        assertTrue(Settings.recentApps(store.context(), "tablet-a").isEmpty());
+        assertEquals(Collections.singletonList("com.example.b"), Settings.recentApps(store.context(), "tablet-b"));
+        assertEquals(Collections.singleton("com.example.a"), Settings.favoriteApps(store.context()));
+
+        Settings.recordRecentApp(store.context(), "tablet-a", "com.example.c");
+        assertEquals(Collections.singletonList("com.example.c"), Settings.recentApps(store.context(), "tablet-a"));
+    }
+
+    @Test public void clearingWithoutADeviceIdDoesNotEraseOtherHistory() {
+        PreferenceStore store = new PreferenceStore();
+        Settings.recordRecentApp(store.context(), "tablet-a", "com.example.a");
+        Settings.clearRecentApps(store.context(), null);
+        Settings.clearRecentApps(store.context(), "");
+        assertEquals(Collections.singletonList("com.example.a"), Settings.recentApps(store.context(), "tablet-a"));
+    }
+
     // Enforce Android's ownership contract: sets returned by preferences cannot
     // be mutated, and editor changes become visible only when applied.
     private static final class PreferenceStore {
         final Map<String, Object> values = new HashMap<>();
 
         Context context() {
-            Map<String, Set<String>> pending = new HashMap<>();
+            Map<String, Object> pending = new HashMap<>();
+            Set<String> removed = new HashSet<>();
             SharedPreferences.Editor editor = (SharedPreferences.Editor) Proxy.newProxyInstance(
                     getClass().getClassLoader(), new Class<?>[]{SharedPreferences.Editor.class},
                     (proxy, method, args) -> {
@@ -75,8 +99,17 @@ public class SettingsFavoritesTest {
                                 for (Object value : source) copy.add((String) value);
                                 pending.put((String) args[0], Collections.unmodifiableSet(copy));
                                 return proxy;
+                            case "putString":
+                                pending.put((String) args[0], args[1]);
+                                return proxy;
+                            case "remove":
+                                removed.add((String) args[0]);
+                                return proxy;
                             case "apply":
+                                for (String key : removed) values.remove(key);
                                 values.putAll(pending);
+                                removed.clear();
+                                pending.clear();
                                 return null;
                             default: throw new UnsupportedOperationException(method.getName());
                         }
@@ -90,6 +123,11 @@ public class SettingsFavoritesTest {
                                 if (value == null) return args[1];
                                 if (!(value instanceof Set<?>)) throw new ClassCastException();
                                 return value;
+                            case "getString":
+                                Object text = values.get(args[0]);
+                                if (text == null) return args[1];
+                                if (!(text instanceof String)) throw new ClassCastException();
+                                return text;
                             case "edit": return editor;
                             default: throw new UnsupportedOperationException(method.getName());
                         }

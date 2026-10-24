@@ -1,3 +1,4 @@
+// Modified for padconnect (2026); see the root NOTICE for changes and upstream provenance.
 // SPDX-License-Identifier: GPL-3.0-or-later OR Apache-2.0
 
 package io.github.muntashirakon.adb;

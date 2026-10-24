@@ -1,3 +1,4 @@
+// Modified for padconnect (2026); see the root NOTICE for changes and upstream provenance.
 package invalid.lena.scrcpy;
 
 import static org.junit.Assert.assertEquals;

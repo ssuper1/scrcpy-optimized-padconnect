@@ -7,6 +7,10 @@ import android.content.SharedPreferences;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONException;
 
 // Thin wrapper around SharedPreferences for the small set of user
 // choices the app exposes. No reactivity, no DataStore - the values
@@ -26,6 +30,8 @@ public final class Settings {
     public static final String PHONE_TEXT_SCALE = "phone_text_scale";
     public static final String PHONE_LAST_APP = "phone_last_app";
     public static final String FAVORITE_APPS = "favorite_apps";
+    public static final String FLOATING_NAVIGATION = "floating_navigation";
+    public static final String KEEP_TABLET_AWAKE = "keep_tablet_awake";
 
     public static final String DEFAULT_VIDEO_CODEC    = "h264";
     public static final String DEFAULT_AUDIO_CODEC    = "opus";
@@ -166,6 +172,51 @@ public final class Settings {
             Log.w("settings: %s has the wrong type", FAVORITE_APPS);
             return new HashSet<>();
         }
+    }
+
+    public static boolean floatingNavigation(Context ctx) {
+        return bool(ctx, FLOATING_NAVIGATION, true);
+    }
+
+    public static void setFloatingNavigation(Context ctx, boolean visible) {
+        prefs(ctx).edit().putBoolean(FLOATING_NAVIGATION, visible).apply();
+    }
+
+    public static boolean keepTabletAwake(Context ctx) {
+        return bool(ctx, KEEP_TABLET_AWAKE, true);
+    }
+
+    public static void setKeepTabletAwake(Context ctx, boolean enabled) {
+        prefs(ctx).edit().putBoolean(KEEP_TABLET_AWAKE, enabled).apply();
+    }
+
+    public static List<String> recentApps(Context ctx, String deviceId) {
+        List<String> result = new ArrayList<>();
+        if (deviceId == null || deviceId.isEmpty()) return result;
+        try {
+            JSONArray array = new JSONArray(string(ctx, "recent_apps:" + deviceId, "[]"));
+            for (int i = 0; i < Math.min(array.length(), RecentApps.LIMIT); i++) {
+                String name = array.optString(i, "");
+                try {
+                    ControlMessages.startApp(name);
+                    if (!result.contains(name)) result.add(name);
+                } catch (IllegalArgumentException ignored) {}
+            }
+        } catch (JSONException e) {
+            Log.w("recent apps: invalid saved history");
+        }
+        return result;
+    }
+
+    public static void recordRecentApp(Context ctx, String deviceId, String packageName) {
+        if (deviceId == null || deviceId.isEmpty()) return;
+        List<String> history = RecentApps.record(recentApps(ctx, deviceId), packageName);
+        prefs(ctx).edit().putString("recent_apps:" + deviceId, new JSONArray(history).toString()).apply();
+    }
+
+    public static void clearRecentApps(Context ctx, String deviceId) {
+        if (deviceId == null || deviceId.isEmpty()) return;
+        prefs(ctx).edit().remove("recent_apps:" + deviceId).apply();
     }
 
     public static void setAppFavorite(Context ctx, String packageName, boolean favorite) {

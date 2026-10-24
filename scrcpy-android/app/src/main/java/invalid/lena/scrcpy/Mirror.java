@@ -15,9 +15,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.view.Gravity;
-import android.view.ContextThemeWrapper;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
@@ -33,7 +31,6 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.PopupMenu;
 
 import java.util.Locale;
 import java.util.List;
@@ -81,10 +78,12 @@ public final class Mirror extends Activity {
     private boolean        phoneModeSession;
     private boolean        appPickerRequested;
     private boolean        appListLoading;
+    private boolean        screenWakeLoading;
     private View           modeButton;
     private EdgeMenuHandle menuHandle;
+    private View floatingNavigation;
     private AlertDialog    appDialog;
-    private PopupMenu      displayMenu;
+    private MirrorMenu     displayMenu;
     private List<RemoteApps.Entry> cachedApps;
     private Map<String, Bitmap> cachedAppIcons = Collections.emptyMap();
 
@@ -136,6 +135,9 @@ public final class Mirror extends Activity {
         // video surface, so re-fit from here as well.
         root.addOnLayoutChangeListener(
                 (view, l, t, r, b, ol, ot, or, ob) -> {
+                    if (displayMenu != null && (r - l != or - ol || b - t != ob - ot)) {
+                        displayMenu.dismiss();
+                    }
                     applyLetterbox();
                     resizePhoneDisplay();
                 });
@@ -145,6 +147,7 @@ public final class Mirror extends Activity {
         statusText   = findViewById(R.id.status_text);
         reconnectBtn = findViewById(R.id.reconnect);
         insetStatusBar();
+        setupFloatingNavigation();
         reconnectBtn.setOnClickListener(view -> reconnect());
         updateStatusBar();
         modeButton = findViewById(R.id.display_menu);
@@ -310,7 +313,14 @@ public final class Mirror extends Activity {
                     resizePhoneDisplay();
                     if (phoneModeSession && !appPickerRequested) {
                         appPickerRequested = true;
-                        showAppPicker();
+                        showAppPicker(RemoteAppPicker.Mode.GRID);
+                    }
+                });
+            }
+            @Override public void onAppLaunchRequested(String packageName) {
+                runOnUiThread(() -> {
+                    if (!destroyed && generation == sessionGeneration) {
+                        Settings.recordRecentApp(Mirror.this, target.id, packageName);
                     }
                 });
             }
@@ -335,6 +345,14 @@ public final class Mirror extends Activity {
                 runOnUiThread(() -> {
                     if (!destroyed && generation == sessionGeneration) {
                         Toast.makeText(Mirror.this, R.string.phone_scale_unverified,
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+            @Override public void onKeepAwakeError() {
+                runOnUiThread(() -> {
+                    if (!destroyed && generation == sessionGeneration) {
+                        Toast.makeText(Mirror.this, R.string.keep_tablet_awake_failed,
                                 Toast.LENGTH_LONG).show();
                     }
                 });
@@ -441,7 +459,7 @@ public final class Mirror extends Activity {
         reconnectBtn.setVisibility(state == State.DISCONNECTED ? View.VISIBLE : View.GONE);
 
         // Status is only needed during bring-up and after a terminal error.
-        // Target navigation remains inside the mirrored frame.
+        // The navigation overlay never changes the remote frame's geometry.
         if (statusBar != null) {
             statusBar.setVisibility(state == State.CONNECTED ? View.GONE : View.VISIBLE);
         }
@@ -449,6 +467,61 @@ public final class Mirror extends Activity {
             // Keep the recovery menu accessible even if virtual-display creation fails.
             modeButton.setVisibility(View.VISIBLE);
         }
+        updateFloatingNavigation();
+    }
+
+    private void setupFloatingNavigation() {
+        floatingNavigation = findViewById(R.id.floating_navigation);
+        findViewById(R.id.nav_recent).setOnClickListener(view -> showAppPicker(RemoteAppPicker.Mode.RECENT));
+        findViewById(R.id.nav_home).setOnClickListener(view -> showAppPicker(RemoteAppPicker.Mode.GRID));
+        findViewById(R.id.nav_back).setOnClickListener(view -> remoteBack());
+        View navigationButtons = findViewById(R.id.floating_navigation_buttons);
+        floatingNavigation.setOnApplyWindowInsetsListener((view, insets) -> {
+            Insets cutout = insets.getInsetsIgnoringVisibility(WindowInsets.Type.displayCutout());
+            // Keep the background flush with the bottom edge. Only the
+            // buttons avoid horizontal cutouts; transient system navigation
+            // must not lift the overlay or reserve a bottom gap.
+            if (navigationButtons.getPaddingLeft() != cutout.left
+                    || navigationButtons.getPaddingRight() != cutout.right) {
+                navigationButtons.setPadding(cutout.left, 0, cutout.right, 0);
+            }
+            return insets;
+        });
+        floatingNavigation.requestApplyInsets();
+    }
+
+    private void updateFloatingNavigation() {
+        if (floatingNavigation == null) return;
+        floatingNavigation.setVisibility(state == State.CONNECTED && Settings.floatingNavigation(this)
+                ? View.VISIBLE : View.GONE);
+    }
+
+    private void remoteBack() {
+        if (session != null && state == State.CONNECTED) session.onBack();
+    }
+
+    private void wakeTablet() {
+        if (session == null || state != State.CONNECTED || screenWakeLoading || destroyed) return;
+        screenWakeLoading = true;
+        long generation = sessionGeneration;
+        Session current = session;
+        new Thread(() -> {
+            String message;
+            try {
+                current.wakeScreen();
+                message = getString(R.string.wake_tablet_sent);
+            } catch (Exception e) {
+                if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+                Log.e(e, "tablet screen wake failed");
+                message = getString(R.string.wake_tablet_failed, describe(e));
+            }
+            String result = message;
+            runOnUiThread(() -> {
+                screenWakeLoading = false;
+                if (destroyed || generation != sessionGeneration || state != State.CONNECTED) return;
+                Toast.makeText(this, result, Toast.LENGTH_LONG).show();
+            });
+        }, "tablet-screen-wake").start();
     }
 
     private PhoneDisplay phoneDisplayForWindow() {
@@ -469,85 +542,84 @@ public final class Mirror extends Activity {
     private void showDisplayMenu(View anchor) {
         if (destroyed || displayMenu != null) return;
         menuHandle.wake();
-        PopupMenu menu = new PopupMenu(new ContextThemeWrapper(this, R.style.ThemeOverlay_MirrorMenu), anchor);
+        MirrorMenu menu = new MirrorMenu(this, state == State.CONNECTED, screenWakeLoading,
+                this::onDisplayAction);
         displayMenu = menu;
-        menu.setForceShowIcon(true);
-        menu.getMenu().setGroupDividerEnabled(true);
-        menu.getMenu().add(0, 6, 0, R.string.remote_back)
-                .setIcon(R.drawable.ic_menu_back)
-                .setEnabled(state == State.CONNECTED);
-        menu.getMenu().add(0, 3, 1, R.string.menu_apps)
-                .setIcon(R.drawable.ic_menu_apps)
-                .setEnabled(state == State.CONNECTED);
-        menu.getMenu().add(0, 7, 2, R.string.rotate_screen)
-                .setIcon(R.drawable.ic_menu_rotate);
-        menu.getMenu().add(1, 1, 3, R.string.menu_phone_mode)
-                .setIcon(R.drawable.ic_menu_phone)
-                .setCheckable(true).setChecked(Settings.phoneMode(this));
-        menu.getMenu().add(1, 2, 4, R.string.menu_original_mode)
-                .setIcon(R.drawable.ic_menu_tablet)
-                .setCheckable(true).setChecked(!Settings.phoneMode(this));
-        menu.getMenu().setGroupCheckable(1, true, true);
-        menu.getMenu().add(2, 4, 5, R.string.phone_text_size)
-                .setIcon(R.drawable.ic_menu_text_size);
-        menu.getMenu().add(3, 5, 6, R.string.leave_mirror)
-                .setIcon(R.drawable.ic_menu_disconnect);
-        menu.setOnMenuItemClickListener(item -> {
-            switch (item.getItemId()) {
-                case 1: case 2:
-                    boolean enabled = item.getItemId() == 1;
-                    if (Settings.phoneMode(this) != enabled) {
-                        Settings.setPhoneMode(this, enabled);
-                        reconnect();
-                    }
-                    return true;
-                case 3: showAppPicker(); return true;
-                case 6:
-                    if (session != null && state == State.CONNECTED) session.onBack();
-                    return true;
-                case 7:
-                    rotateScreen();
-                    return true;
-                case 4:
-                    int[] textScales = {75, 85, 100, 125, 150};
-                    int selected = 2;
-                    for (int index = 0; index < textScales.length; index++) {
-                        if (textScales[index] == Settings.phoneTextScale(this)) selected = index;
-                    }
-                    showImmersiveDialog(new AlertDialog.Builder(this).setTitle(R.string.phone_text_size)
-                            .setSingleChoiceItems(R.array.phone_text_sizes, selected, (dialog, which) -> {
-                                int value = textScales[which];
-                                dialog.dismiss();
-                                if (!phoneModeSession) {
-                                    showImmersiveDialog(new AlertDialog.Builder(this)
-                                            .setTitle(R.string.phone_text_size)
-                                            .setMessage(R.string.phone_scale_requires_phone_mode)
-                                            .setPositiveButton(R.string.use_phone_mode, (confirm, button) -> {
-                                                Settings.setPhoneMode(this, true);
-                                                Settings.setPhoneTextScale(this, value);
-                                                reconnect();
-                                            })
-                                            .setNegativeButton(android.R.string.cancel, null).create());
-                                } else {
-                                    Settings.setPhoneTextScale(this, value);
-                                    // Selecting the current size also retries
-                                    // its application after a failed setup.
-                                    reconnect();
-                                }
-                            }).setNegativeButton(android.R.string.cancel, null).create());
-                    return true;
-                case 5: finish(); return true;
-                default: return false;
-            }
-        });
-        menu.setOnDismissListener(ignored -> {
+        menu.setOnDismissListener(() -> {
             displayMenu = null;
             if (!destroyed) {
                 ui.post(this::immersive);
                 menuHandle.fadeLater();
             }
         });
-        menu.show();
+        menu.show(anchor, root);
+    }
+
+    private void onDisplayAction(MirrorMenu.Action action) {
+        switch (action) {
+            case PHONE_MODE: case TABLET_MODE:
+                boolean enabled = action == MirrorMenu.Action.PHONE_MODE;
+                if (Settings.phoneMode(this) != enabled) {
+                    Settings.setPhoneMode(this, enabled);
+                    reconnect();
+                }
+                return;
+            case APPS: showAppPicker(RemoteAppPicker.Mode.GRID); return;
+            case BACK:
+                remoteBack();
+                return;
+            case NAVIGATION:
+                Settings.setFloatingNavigation(this, !Settings.floatingNavigation(this));
+                updateFloatingNavigation();
+                return;
+            case RECENT:
+                showAppPicker(RemoteAppPicker.Mode.RECENT);
+                return;
+            case WAKE:
+                wakeTablet();
+                return;
+            case KEEP_AWAKE:
+                Settings.setKeepTabletAwake(this, !Settings.keepTabletAwake(this));
+                if (state != State.DISCONNECTED) {
+                    Toast.makeText(this, R.string.keep_tablet_awake_reconnecting,
+                            Toast.LENGTH_SHORT).show();
+                    reconnect();
+                }
+                return;
+            case ROTATE:
+                rotateScreen();
+                return;
+            case TEXT_SIZE:
+                int[] textScales = {75, 85, 100, 125, 150};
+                int selected = 2;
+                for (int index = 0; index < textScales.length; index++) {
+                    if (textScales[index] == Settings.phoneTextScale(this)) selected = index;
+                }
+                showImmersiveDialog(new AlertDialog.Builder(this).setTitle(R.string.phone_text_size)
+                        .setSingleChoiceItems(R.array.phone_text_sizes, selected, (dialog, which) -> {
+                            int value = textScales[which];
+                            dialog.dismiss();
+                            if (!phoneModeSession) {
+                                showImmersiveDialog(new AlertDialog.Builder(this)
+                                        .setTitle(R.string.phone_text_size)
+                                        .setMessage(R.string.phone_scale_requires_phone_mode)
+                                        .setPositiveButton(R.string.use_phone_mode, (confirm, button) -> {
+                                            Settings.setPhoneMode(this, true);
+                                            Settings.setPhoneTextScale(this, value);
+                                            reconnect();
+                                        })
+                                        .setNegativeButton(android.R.string.cancel, null).create());
+                            } else {
+                                Settings.setPhoneTextScale(this, value);
+                                // Selecting the current size also retries
+                                // its application after a failed setup.
+                                reconnect();
+                            }
+                        }).setNegativeButton(android.R.string.cancel, null).create());
+                return;
+            case DISCONNECT: finish(); return;
+            default: return;
+        }
     }
 
     private void rotateScreen() {
@@ -561,11 +633,11 @@ public final class Mirror extends Activity {
         Log.i("mirror: requested %s orientation", landscape ? "portrait" : "landscape");
     }
 
-    private void showAppPicker() {
+    private void showAppPicker(RemoteAppPicker.Mode mode) {
         if (state != State.CONNECTED || session == null || appListLoading || destroyed) return;
         if (appDialog != null && appDialog.isShowing()) return;
         if (cachedApps != null) {
-            showAppList(cachedApps);
+            showAppList(cachedApps, mode);
             return;
         }
         appListLoading = true;
@@ -586,7 +658,7 @@ public final class Mirror extends Activity {
                     if (destroyed || generation != sessionGeneration || state != State.CONNECTED) return;
                     cachedApps = apps;
                     cachedAppIcons = icons;
-                    if (show) showAppList(apps);
+                    if (show) showAppList(apps, mode);
                 });
             } catch (Exception e) {
                 Log.e(e, "remote apps: query failed");
@@ -603,9 +675,11 @@ public final class Mirror extends Activity {
         }, "remote-apps").start();
     }
 
-    private void showAppList(List<RemoteApps.Entry> apps) {
+    private void showAppList(List<RemoteApps.Entry> apps, RemoteAppPicker.Mode mode) {
         long generation = sessionGeneration;
-        AlertDialog picker = RemoteAppPicker.create(this, apps, cachedAppIcons, app -> {
+        String deviceId = target.id;
+        AlertDialog picker = RemoteAppPicker.create(this, apps, cachedAppIcons, mode,
+                Settings.recentApps(this, deviceId), () -> Settings.clearRecentApps(this, deviceId), app -> {
             if (generation == sessionGeneration && session != null
                     && state == State.CONNECTED && session.startApp(app.packageName)) {
                 Settings.setPhoneLastApp(this, app.packageName);
@@ -635,27 +709,11 @@ public final class Mirror extends Activity {
         return super.onTouchEvent(ev);
     }
 
-    // Back goes to the target; Back twice in quick succession leaves the
-    // mirror.
-    //
-    // It used to be long-press-Back to reach the target and short-press
-    // to do nothing. That stopped working twice over: gesture navigation
-    // has no Back key to hold, and at targetSdk 35 and later predictive back is on
-    // by default, so the framework routes Back through
-    // OnBackInvokedDispatcher and onKeyDown/onKeyLongPress are never
-    // called for it at all. The advertised feature was unreachable on
-    // every current device.
-    private static final long DOUBLE_BACK_MS = 600L;
-    private long lastBackAtMs;
-
+    // Phone Back, the menu action and the overlay all send ordinary remote
+    // Back. Leaving mirroring is explicit in the side menu; fast repeated
+    // Back presses must remain usable for navigating several app pages.
     private void onBackRequested() {
-        long now = SystemClock.elapsedRealtime();
-        if (now - lastBackAtMs < DOUBLE_BACK_MS) {
-            finish();
-            return;
-        }
-        lastBackAtMs = now;
-        if (session != null) session.onBack();
+        remoteBack();
     }
 
     // Pre-33 devices (minSdk is 31) still deliver Back this way. API 33+

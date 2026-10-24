@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="56dp"
+    android:background="@drawable/bg_menu_tile"
+    android:foreground="?android:attr/selectableItemBackground"
+    android:clipToOutline="true"
+    android:clickable="true"
+    android:focusable="true">
+
+    <TextView
+        android:id="@+id/menu_tile_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:padding="4dp"
+        android:drawablePadding="3dp"
+        android:textColor="@color/menu_tile_foreground"
+        android:textSize="11sp"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:duplicateParentState="true"
+        android:importantForAccessibility="no"/>
+
+    <ImageView
+        android:id="@+id/menu_tile_checked"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="4dp"
+        android:src="@drawable/ic_menu_check"
+        android:contentDescription="@null"
+        android:importantForAccessibility="no"
+        android:visibility="gone"/>
+</FrameLayout>

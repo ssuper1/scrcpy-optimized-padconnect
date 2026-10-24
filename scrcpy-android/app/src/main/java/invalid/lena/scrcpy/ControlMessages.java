@@ -83,6 +83,16 @@ public final class ControlMessages {
         return new byte[]{(byte) TYPE_BACK_OR_SCREEN_ON, (byte) action};
     }
 
+    /** An ordinary Back press; it must never fall back to the Power key. */
+    public static byte[] backPress() {
+        byte[] down = keycode(ACTION_DOWN, 4 /* KEYCODE_BACK */, 0, 0);
+        byte[] up = keycode(ACTION_UP, 4 /* KEYCODE_BACK */, 0, 0);
+        byte[] press = new byte[down.length + up.length];
+        System.arraycopy(down, 0, press, 0, down.length);
+        System.arraycopy(up, 0, press, down.length, up.length);
+        return press;
+    }
+
     public static byte[] resetVideo() {
         return new byte[]{(byte) TYPE_RESET_VIDEO};
     }

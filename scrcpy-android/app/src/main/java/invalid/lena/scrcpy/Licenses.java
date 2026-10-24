@@ -1,3 +1,4 @@
+// Modified for padconnect (2026); see the root NOTICE for changes and upstream provenance.
 package invalid.lena.scrcpy;
 
 import android.app.Activity;
@@ -21,7 +22,7 @@ import java.nio.charset.StandardCharsets;
 // notice.
 public final class Licenses extends Activity {
 
-    private static final String ASSET = "THIRD_PARTY_NOTICES";
+    private static final String[] ASSETS = {"THIRD_PARTY_NOTICES", "OPEN_SOURCE_LICENSES"};
 
     @Override
     protected void onCreate(Bundle saved) {
@@ -32,16 +33,22 @@ public final class Licenses extends Activity {
     }
 
     private String read() {
-        try (InputStream in = getAssets().open(ASSET)) {
+        try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             byte[] buf = new byte[8192];
-            for (int n; (n = in.read(buf)) >= 0; ) {
-                if (n == 0) throw new IOException("license asset read made no progress");
-                out.write(buf, 0, n);
+            for (String asset : ASSETS) {
+                try (InputStream in = getAssets().open(asset)) {
+                    for (int n; (n = in.read(buf)) >= 0; ) {
+                        if (n == 0) throw new IOException("license asset read made no progress");
+                        out.write(buf, 0, n);
+                    }
+                }
+                out.write('\n');
+                out.write('\n');
             }
             return out.toString(StandardCharsets.UTF_8.name());
         } catch (IOException e) {
-            Log.e(e, "licenses: cannot read %s", ASSET);
+            Log.e(e, "licenses: cannot read bundled notices");
             return getString(R.string.licenses_unavailable);
         }
     }

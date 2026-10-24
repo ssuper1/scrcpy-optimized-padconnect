@@ -5,6 +5,31 @@ plugins {
 
 import java.security.MessageDigest
 
+abstract class GenerateOpenSourceNotices extends DefaultTask {
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract org.gradle.api.file.ConfigurableFileCollection getNoticeSources()
+
+    @OutputDirectory
+    abstract org.gradle.api.file.DirectoryProperty getOutputDirectory()
+
+    @TaskAction
+    void generate() {
+        def output = outputDirectory.file('OPEN_SOURCE_LICENSES').get().asFile
+        output.parentFile.mkdirs()
+        output.withWriter('UTF-8') { writer ->
+            writer.write('Bundled licenses and attribution notices\n')
+            noticeSources.files.toList().sort { a, b ->
+                project.rootProject.relativePath(a) <=> project.rootProject.relativePath(b)
+            }.each { source ->
+                writer.write('\n\n===== ' + project.rootProject.relativePath(source) + ' =====\n\n')
+                writer.write(source.getText('UTF-8'))
+                writer.write('\n')
+            }
+        }
+    }
+}
+
 android {
     namespace = 'invalid.lena.scrcpy'
     compileSdk 36
@@ -18,8 +43,8 @@ android {
         applicationId 'invalid.lena.scrfix'
         minSdk 31
         targetSdk 36
-        versionCode 20
-        versionName '0.6.14-phone'
+        versionCode 21
+        versionName '0.6.15-phone'
     }
 
     // AGP otherwise embeds a Google-signed dependency-metadata blob in the
@@ -105,7 +130,8 @@ android {
         // our use case (we only call BC's asn1, crypto, util.encoders):
         //   - picnic post-quantum lookup tables: ~1.2 MB of .properties
         //   - cert-path-reviewer i18n messages: ~92 KB, en+de only
-        //   - duplicate META-INF licenses/notices: ordinary AGP cleanup
+        //   - duplicate META-INF licenses/notices: supplied separately in
+        //     OPEN_SOURCE_LICENSES, visible in Settings -> Open-source licenses
         resources.excludes += [
             'META-INF/LICENSE*',
             'META-INF/NOTICE*',
@@ -140,6 +166,23 @@ dependencies {
 }
 
 def serverJar = file('src/main/assets/scrcpy-server.jar')
+
+// Keep APK notices derived from the same files distributed with the source.
+def noticeSources = files(
+        rootProject.file('NOTICE'),
+        rootProject.file('LICENSE'),
+        rootProject.file('scrcpy-android/vendor/libadb-android/COPYING'),
+        fileTree(rootProject.file('scrcpy-android/vendor/libadb-android/LICENSES')) { include '*' },
+        fileTree(rootProject.file('THIRD_PARTY_LICENSES')) { include '*.txt', '*.html' }
+)
+def generateNotices = tasks.register('generateOpenSourceNotices', GenerateOpenSourceNotices) {
+    getNoticeSources().from(noticeSources)
+    outputDirectory.set(layout.buildDirectory.dir('generated/open-source-notices'))
+}
+
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    variant.sources.assets.addGeneratedSourceDirectory(generateNotices) { it.outputDirectory }
+}
 def serverSum = file('src/main/assets/scrcpy-server.sha256')
 def serverVersion = file('src/main/assets/scrcpy-server.version')
 def expectedServerSum = providers.gradleProperty('scrcpyServerSha256')

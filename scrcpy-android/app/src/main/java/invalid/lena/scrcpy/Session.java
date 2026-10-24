@@ -43,6 +43,8 @@ public final class Session {
         default void onReconnecting() {}
         default void onTargetResolved(Devices.Device target) {}
         default void onDisplayScaleError() {}
+        default void onKeepAwakeError() {}
+        default void onAppLaunchRequested(String packageName) {}
         // Fatal: a retry budget ran out, or the failure was not
         // retriable. Always followed by onStopped().
         void onError(Throwable t);
@@ -185,6 +187,20 @@ public final class Session {
         if (c != null) c.onBack();
     }
 
+    // Blocking shell operation: callers must use a background thread.
+    public void wakeScreen() throws Exception {
+        Server current;
+        synchronized (this) {
+            if (stopped || server == null) throw new IOException("Session is disconnected");
+            current = server;
+        }
+        current.wakeScreen();
+        synchronized (this) {
+            if (stopped || current != server) throw new IOException("Session changed during screen wake");
+            if (controller != null) controller.resetVideo();
+        }
+    }
+
     public void syncClipboard() {
         Controller c = controller;
         if (c != null) c.syncLocalClipboard();
@@ -194,6 +210,7 @@ public final class Session {
         ControlStream stream = controlStream;
         if (stream == null || stopped) return false;
         stream.send(ControlMessages.startApp(packageName));
+        if (listener != null) listener.onAppLaunchRequested(packageName);
         return true;
     }
 
@@ -455,6 +472,16 @@ public final class Session {
             as.start();
             vs.start();
 
+            try {
+                srv.prepareKeepAwake();
+            } catch (InterruptedException e) {
+                throw e;
+            } catch (Exception e) {
+                Log.w("tablet keep awake could not be applied: %s", e);
+                if (!stopped && listener != null) listener.onKeepAwakeError();
+            }
+            if (stopped) throw new IOException("session: stopped during keep-awake setup");
+
             if (launchedDisplay != null) {
                 // Verify/apply the secondary display density before opening the
                 // remote app. A rejected OEM command must not kill mirroring.
@@ -467,7 +494,9 @@ public final class Session {
                     if (!stopped && listener != null) listener.onDisplayScaleError();
                 }
                 if (stopped) throw new IOException("session: stopped during display setup");
-                cs.send(ControlMessages.startApp(Settings.phoneLastApp(ctx)));
+                String packageName = Settings.phoneLastApp(ctx);
+                cs.send(ControlMessages.startApp(packageName));
+                if (listener != null) listener.onAppLaunchRequested(packageName);
             }
 
             synchronized (this) {

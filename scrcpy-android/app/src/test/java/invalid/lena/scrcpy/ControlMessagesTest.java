@@ -9,6 +9,21 @@ import org.junit.Test;
 import java.nio.charset.StandardCharsets;
 
 public class ControlMessagesTest {
+    @Test public void backPressInjectsOrdinaryBackDownAndUpWithoutPowerFallback() {
+        byte[] press = ControlMessages.backPress();
+        assertEquals(28, press.length);
+        // Protocol keycode messages: type/action/keycode/repeat/meta, twice.
+        assertEquals(0, press[0]);
+        assertEquals(0, press[1]);
+        assertEquals(4, Wire.readBe32(press, 2));
+        assertEquals(0, Wire.readBe32(press, 6));
+        assertEquals(0, Wire.readBe32(press, 10));
+        assertEquals(0, press[14]);
+        assertEquals(1, press[15]);
+        assertEquals(4, Wire.readBe32(press, 16));
+        assertEquals(0, Wire.readBe32(press, 20));
+        assertEquals(0, Wire.readBe32(press, 24));
+    }
     @Test public void startAppMatchesServerOneByteLengthProtocol() {
         String packageName = "com.android.settings";
         byte[] message = ControlMessages.startApp(packageName);

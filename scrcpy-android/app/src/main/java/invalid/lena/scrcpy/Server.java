@@ -59,6 +59,11 @@ public final class Server {
     private final Context ctx;
     private final Adb     adb;
     private final PhoneDisplay phoneDisplay;
+    private final boolean keepTabletAwake;
+    // About 24.8 days: the largest timeout accepted by the server's int option.
+    // Unlike stay_awake, this also works without a charger. Server cleanup
+    // records and restores the tablet's previous timeout on disconnection.
+    private static final int KEEP_AWAKE_TIMEOUT_MS = Integer.MAX_VALUE;
     private AdbStream     shell;
     private Thread        shellPump;
     private Streams       streams;
@@ -70,6 +75,7 @@ public final class Server {
         this.ctx = ctx;
         this.adb = adb;
         this.phoneDisplay = phoneDisplay;
+        this.keepTabletAwake = Settings.keepTabletAwake(ctx);
     }
 
     public Streams bringUp() throws Exception {
@@ -215,15 +221,16 @@ public final class Server {
         args.add("tunnel_forward=true");
         args.add("cleanup=true");
         args.add("power_on=true");
+        if (keepTabletAwake) args.add("screen_off_timeout=" + KEEP_AWAKE_TIMEOUT_MS);
         if (phoneDisplay != null) {
             args.add("new_display=" + phoneDisplay.serverValue());
             args.add("flex_display=true");
             args.add("vd_destroy_content=false");
             args.add("display_ime_policy=local");
-            // Let the tablet provide its supported system bars. Immersive
-            // mode on the controller phone is a separate, local setting.
-            // Home/app selection remains available through the edge menu.
-            args.add("vd_system_decorations=true");
+            // Replace the virtual display's system navigation with the
+            // client's optional floating controls. This also suppresses
+            // its status bar; main-display mirroring is unaffected.
+            args.add("vd_system_decorations=false");
         }
         return String.join(" ", args);
     }
@@ -363,12 +370,35 @@ public final class Server {
             throw new IOException("Virtual display ID was not confirmed");
         }
         int actual = PhoneDisplayDensity.ensure(virtualDisplayId, phoneDisplay.dpi,
-                this::readDisplayShell);
+                this::readShell);
         Log.i("phone display: id=%d requestedDpi=%d effectiveDpi=%d",
                 virtualDisplayId, phoneDisplay.dpi, actual);
     }
 
-    private String readDisplayShell(String command) throws Exception {
+    public void prepareKeepAwake() throws Exception {
+        if (!keepTabletAwake) return;
+        // The cleanup thread applies the option asynchronously. Verify it
+        // before claiming success, allowing a brief startup race.
+        boolean confirmed = false;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            String value = readShell("settings get system screen_off_timeout");
+            if (Integer.toString(KEEP_AWAKE_TIMEOUT_MS).equals(value.trim())) {
+                confirmed = true;
+                break;
+            }
+            Thread.sleep(100);
+        }
+        if (!confirmed) throw new IOException("Tablet screen timeout was not confirmed");
+        wakeScreen();
+        Log.i("tablet keep awake: timeout=%d verified, physical screen wake sent", KEEP_AWAKE_TIMEOUT_MS);
+    }
+
+    public void wakeScreen() throws Exception {
+        if (serverEof) throw new IOException("Session is disconnected");
+        ScreenWake.wake(this::readShell);
+    }
+
+    private String readShell(String command) throws Exception {
         AdbStream stream = adb.openShell(command);
         CountDownLatch done = new CountDownLatch(1);
         AtomicBoolean timedOut = new AtomicBoolean();
@@ -381,18 +411,18 @@ public final class Server {
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             }
-        }, "display-density-deadline");
+        }, "display-shell-deadline");
         deadline.setDaemon(true);
         deadline.start();
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             InputStream input = stream.openInputStream();
             byte[] buffer = new byte[1024];
             for (int count; (count = input.read(buffer)) >= 0;) {
-                if (count == 0) throw new IOException("Display density query made no progress");
-                if (out.size() + count > 16_384) throw new IOException("Display density output is too large");
+                if (count == 0) throw new IOException("Display command made no progress");
+                if (out.size() + count > 16_384) throw new IOException("Display command output is too large");
                 out.write(buffer, 0, count);
             }
-            if (timedOut.get()) throw new IOException("Display density query timed out");
+            if (timedOut.get()) throw new IOException("Display command timed out");
             return out.toString(StandardCharsets.UTF_8.name());
         } finally {
             done.countDown();

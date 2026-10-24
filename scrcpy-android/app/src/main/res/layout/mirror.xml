@@ -54,6 +54,108 @@
 
     </LinearLayout>
 
+    <!-- Overlay only: never reserves height or changes the video viewport. -->
+    <FrameLayout
+        android:id="@+id/floating_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="gone">
+
+        <!-- Full-width bottom strip; the transparent touch area extends upward. -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/bg_floating_navigation"
+            android:clickable="false"
+            android:focusable="false"
+            android:importantForAccessibility="no"/>
+
+        <LinearLayout
+            android:id="@+id/floating_navigation_buttons"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:baselineAligned="false"
+            android:clickable="false"
+            android:focusable="false"
+            android:orientation="horizontal">
+
+            <!-- Only the centered buttons handle DOWN; empty cells fall through
+                 to the activity's existing remote touch forwarding. -->
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="48dp"
+                android:clickable="false"
+                android:focusable="false">
+
+                <ImageButton
+                    android:id="@+id/nav_recent"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center_horizontal"
+                    android:paddingHorizontal="14dp"
+                    android:paddingTop="24dp"
+                    android:paddingBottom="4dp"
+                    android:scaleType="fitCenter"
+                    android:alpha="0.9"
+                    android:src="@drawable/ic_nav_recent"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/recent_apps"
+                    android:tooltipText="@string/recent_apps"/>
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="48dp"
+                android:clickable="false"
+                android:focusable="false">
+
+                <ImageButton
+                    android:id="@+id/nav_home"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center_horizontal"
+                    android:paddingHorizontal="14dp"
+                    android:paddingTop="24dp"
+                    android:paddingBottom="4dp"
+                    android:scaleType="fitCenter"
+                    android:alpha="0.9"
+                    android:src="@drawable/ic_menu_apps"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/menu_apps"
+                    android:tooltipText="@string/menu_apps"/>
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="48dp"
+                android:clickable="false"
+                android:focusable="false">
+
+                <ImageButton
+                    android:id="@+id/nav_back"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center_horizontal"
+                    android:paddingHorizontal="14dp"
+                    android:paddingTop="24dp"
+                    android:paddingBottom="4dp"
+                    android:scaleType="fitCenter"
+                    android:alpha="0.9"
+                    android:src="@drawable/ic_nav_back"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/remote_back"
+                    android:tooltipText="@string/remote_back"/>
+            </FrameLayout>
+        </LinearLayout>
+    </FrameLayout>
+
     <View
         android:id="@+id/display_menu"
         android:layout_width="24dp"

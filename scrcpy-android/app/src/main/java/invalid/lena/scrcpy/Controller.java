@@ -1,3 +1,4 @@
+// Modified for padconnect (2026); see the root NOTICE for changes and upstream provenance.
 package invalid.lena.scrcpy;
 
 import android.content.ClipData;
@@ -181,12 +182,10 @@ public final class Controller implements ControlStream.InboundSink {
         sendKeycode(action, ev.getKeyCode(), ev.getRepeatCount(), ev.getMetaState());
     }
 
-    // Fire a tap of the target's Back. scrcpy server treats the
-    // BACK_OR_SCREEN_ON message as Back when the target is on, screen-
-    // on when it's off - useful for waking a locked target too.
+    // Ordinary Back only. Never use the protocol's combined Back/Power action:
+    // OEM virtual displays may report off even while video is being captured.
     public void onBack() {
-        sender.accept(ControlMessages.backOrScreenOn(ControlMessages.ACTION_DOWN));
-        sender.accept(ControlMessages.backOrScreenOn(ControlMessages.ACTION_UP));
+        sender.accept(ControlMessages.backPress());
     }
 
     public void resetVideo() {
